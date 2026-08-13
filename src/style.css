@@ -56,3 +56,109 @@ body {
   font-variant-numeric: tabular-nums;
   opacity: 0.9;
 }
+
+.prompt {
+  margin-top: 0.75rem;
+  display: inline-block;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  color: #1a1510;
+  background: #ffe08a;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.prompt.hidden {
+  display: none;
+}
+
+#dialogue-root {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.dialogue {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 1.25rem;
+  pointer-events: auto;
+  background: linear-gradient(0deg, rgba(8, 12, 18, 0.92), transparent);
+}
+
+.dialogue.hidden {
+  display: none;
+}
+
+.dialogue__panel {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1rem 1.15rem 1.1rem;
+  background: #1b2430;
+  border: 1px solid rgba(255, 224, 138, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.dialogue__speaker {
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffe08a;
+  margin-bottom: 0.4rem;
+}
+
+.dialogue__text {
+  font-size: 1rem;
+  line-height: 1.45;
+  margin-bottom: 0.85rem;
+}
+
+.dialogue__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dialogue__choice,
+.dialogue__continue {
+  appearance: none;
+  border: 1px solid rgba(232, 238, 244, 0.2);
+  background: #243041;
+  color: #e8eef4;
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dialogue__choice:hover,
+.dialogue__continue:hover {
+  border-color: #ffe08a;
+  background: #2c3a4f;
+}
+
+.dialogue__continue {
+  width: 100%;
+}
+
+.dialogue__continue.hidden {
+  display: none;
+}
+
+#fade {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  background: #05070a;
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}

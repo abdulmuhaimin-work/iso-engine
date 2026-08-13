@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iso-engine · editor</title>
+    <link rel="stylesheet" href="/src/editor/editor.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <header class="brand">
+          <a href="/">iso-engine</a>
+          <strong>asset editor</strong>
+          <a class="sub" href="/builder.html" style="color:#93a0b0;font-size:0.75rem;text-decoration:none">brick builder</a>
+        </header>
+
+        <section>
+          <h2>Map</h2>
+          <div class="row">
+            <label>W <input id="map-w" type="number" min="2" max="64" value="16" /></label>
+            <label>H <input id="map-h" type="number" min="2" max="64" value="16" /></label>
+            <button id="btn-resize" type="button">Resize</button>
+          </div>
+          <div class="row">
+            <label>Layer px <input id="layer-h" type="number" min="4" max="48" value="16" /></label>
+          </div>
+        </section>
+
+        <section>
+          <h2>Tool</h2>
+          <div id="tools" class="tools" role="toolbar"></div>
+          <p id="tool-hint" class="hint"></p>
+        </section>
+
+        <section>
+          <h2>Tiles</h2>
+          <div id="palette" class="palette"></div>
+          <button id="btn-add-tile" type="button" class="full">+ New tile type</button>
+        </section>
+
+        <section id="tile-form" class="tile-form hidden">
+          <h2>Edit tile</h2>
+          <label>Name <input id="tile-name" type="text" /></label>
+          <label>Color <input id="tile-color" type="color" /></label>
+          <label class="check"><input id="tile-walk" type="checkbox" /> Walkable</label>
+          <label>Prop elev <input id="tile-elev" type="number" min="0" max="64" value="0" /></label>
+          <div class="row">
+            <button id="btn-apply-tile" type="button">Apply</button>
+            <button id="btn-delete-tile" type="button" class="danger">Delete</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>I/O</h2>
+          <div class="row wrap">
+            <button id="btn-export" type="button">Export JSON</button>
+            <button id="btn-copy" type="button">Copy</button>
+            <button id="btn-download" type="button">Download</button>
+            <label class="file-btn">Import <input id="file-import" type="file" accept="application/json,.json" /></label>
+          </div>
+          <textarea id="json-out" spellcheck="false" readonly></textarea>
+        </section>
+      </aside>
+
+      <main id="stage">
+        <div id="stage-bar">
+          <span id="status">Ready</span>
+          <span id="cursor-info"></span>
+        </div>
+        <canvas id="view"></canvas>
+      </main>
+    </div>
+    <script type="module" src="/src/editor/main.ts"></script>
+  </body>
+</html>

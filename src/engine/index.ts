@@ -8,6 +8,27 @@ export {
   type RendererOptions,
 } from "./render/Renderer";
 export {
+  SpriteSheet,
+  type FrameRect,
+  type SpriteSheetGridOptions,
+  type ImageSource,
+} from "./render/SpriteSheet";
+export {
+  SpriteAnimator,
+  type AnimClip,
+  type SpriteAnimatorOptions,
+} from "./render/SpriteAnimator";
+export {
+  BrickModel,
+  brickKey,
+  brickToScreen,
+  DEFAULT_BRICK_METRICS,
+  type Brick,
+  type BrickModelData,
+  type BrickMetrics,
+} from "./render/BrickModel";
+export { BrickRenderer, drawCube, type BrickRenderOptions } from "./render/BrickRenderer";
+export {
   worldToScreen,
   screenToWorld,
   worldToTile,
@@ -38,3 +59,35 @@ export {
   type PathNeighborMode,
 } from "./path/AStar";
 export { PathFollower, type PathFollowerOptions } from "./path/PathFollower";
+export {
+  type Interactable,
+  type InteractContext,
+  isInteractableEnabled,
+} from "./interaction/Interactable";
+export { InteractionSystem, type InteractionFocus, type InteractionSystemOptions } from "./interaction/InteractionSystem";
+export { Flags, type FlagValue } from "./dialogue/Flags";
+export {
+  type DialogueScript,
+  type DialogueNode,
+  type DialogueChoice,
+  getNode,
+} from "./dialogue/Dialogue";
+export {
+  DialogueRunner,
+  type DialogueEvent,
+  type DialogueListener,
+} from "./dialogue/DialogueRunner";
+export { DialogueUI, type DialogueUIOptions } from "./dialogue/DialogueUI";
+export type {
+  SceneDefinition,
+  SceneContext,
+  SceneBuildResult,
+  SpawnPoint,
+  Portal,
+  ActiveScene,
+} from "./scene/Scene";
+export {
+  SceneManager,
+  type SceneChangeOptions,
+  type SceneManagerOptions,
+} from "./scene/SceneManager";

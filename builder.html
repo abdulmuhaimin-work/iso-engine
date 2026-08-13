@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iso-engine · brick builder</title>
+    <link rel="stylesheet" href="/src/builder/builder.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <header class="brand">
+          <a href="/">iso-engine</a>
+          <strong>brick builder</strong>
+          <a class="sub" href="/editor.html">tilemap editor</a>
+        </header>
+
+        <section>
+          <h2>Model</h2>
+          <label>Name <input id="model-name" type="text" value="Lego Tree" /></label>
+          <label>Id <input id="model-id" type="text" value="tree" /></label>
+          <div class="row wrap">
+            <label class="grow">Preset
+              <select id="preset">
+                <option value="tree">Tree</option>
+                <option value="hero">Hero</option>
+                <option value="rock">Rock</option>
+                <option value="empty">Empty</option>
+              </select>
+            </label>
+            <button id="btn-load-preset" type="button">Load</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>Build</h2>
+          <label>Layer Y (height)
+            <input id="layer-y" type="range" min="0" max="12" value="0" />
+            <span id="layer-y-val">0</span>
+          </label>
+          <label>Color <input id="color" type="color" value="#3f8f4a" /></label>
+          <div id="swatches" class="swatches"></div>
+          <div class="row wrap">
+            <button id="btn-place" type="button" class="active">Place</button>
+            <button id="btn-erase" type="button">Erase</button>
+            <button id="btn-clear" type="button" class="danger">Clear</button>
+          </div>
+          <p class="hint">
+            LMB place/erase · Alt-drag pan · scroll zoom · edit one height layer at a time
+          </p>
+        </section>
+
+        <section>
+          <h2>Export</h2>
+          <div class="row wrap">
+            <button id="btn-png" type="button">Download PNG</button>
+            <button id="btn-json" type="button">Download JSON</button>
+            <button id="btn-copy" type="button">Copy JSON</button>
+          </div>
+          <p id="stats" class="hint">0 bricks</p>
+          <textarea id="json-out" readonly spellcheck="false"></textarea>
+        </section>
+      </aside>
+
+      <main id="stage">
+        <div id="stage-bar">
+          <span id="status">Ready</span>
+          <span id="cursor-info"></span>
+        </div>
+        <canvas id="view"></canvas>
+      </main>
+    </div>
+    <script type="module" src="/src/builder/main.ts"></script>
+  </body>
+</html>

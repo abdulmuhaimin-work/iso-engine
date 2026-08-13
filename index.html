@@ -10,10 +10,16 @@
     <div id="ui">
       <h1>iso-engine</h1>
       <p>
-        Click a tile to move · WASD / arrows pan · scroll zoom · Space recenter
+        Click to move · E talk / enter cave on NE terrace ·
+        <a href="/editor.html" style="color:#ffe08a">tilemap editor</a>
+        ·
+        <a href="/builder.html" style="color:#ffe08a">brick builder</a>
       </p>
       <div id="hud"></div>
+      <div id="prompt" class="prompt hidden"></div>
     </div>
+    <div id="dialogue-root"></div>
+    <div id="fade" aria-hidden="true"></div>
     <canvas id="game"></canvas>
     <script type="module" src="/src/main.ts"></script>
   </body>

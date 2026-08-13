@@ -31,6 +31,8 @@ export class PathFollower {
     this.findOptions = {
       mode: options.mode ?? "cardinal",
       isBlocked: options.isBlocked,
+      maxClimb: options.maxClimb ?? 1,
+      climbCost: options.climbCost,
     };
   }
 

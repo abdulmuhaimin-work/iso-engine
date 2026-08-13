@@ -71,6 +71,15 @@ export class Camera {
     };
   }
 
+  /** World → canvas pixel, then shift up by elevation (screen px at zoom 1). */
+  worldToScreenElevated(world: Vec2, elevationPx: number): Vec2 {
+    const screen = this.worldToScreen(world);
+    return {
+      x: screen.x,
+      y: screen.y - elevationPx * this.zoom,
+    };
+  }
+
   /** Canvas pixel → world. */
   screenToWorld(screen: Vec2): Vec2 {
     const local = {

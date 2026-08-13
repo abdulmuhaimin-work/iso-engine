@@ -1,10 +1,13 @@
+import type { SpriteSheet } from "./render/SpriteSheet";
+
 export type AssetMap = Record<string, string>;
 
 /**
- * Simple image loader. Paths are resolved relative to the page / Vite public URL.
+ * Image + sprite-sheet registry. Paths resolve via Vite / public URLs.
  */
 export class Assets {
   private readonly images = new Map<string, HTMLImageElement>();
+  private readonly sheets = new Map<string, SpriteSheet>();
 
   async loadImages(map: AssetMap): Promise<void> {
     const entries = Object.entries(map);
@@ -14,6 +17,10 @@ export class Assets {
         this.images.set(key, img);
       }),
     );
+  }
+
+  registerImage(key: string, image: HTMLImageElement): void {
+    this.images.set(key, image);
   }
 
   get(key: string): HTMLImageElement {
@@ -28,6 +35,24 @@ export class Assets {
 
   tryGet(key: string): HTMLImageElement | undefined {
     return this.images.get(key);
+  }
+
+  registerSheet(key: string, sheet: SpriteSheet): void {
+    this.sheets.set(key, sheet);
+  }
+
+  getSheet(key: string): SpriteSheet {
+    const sheet = this.sheets.get(key);
+    if (!sheet) throw new Error(`Sprite sheet not registered: ${key}`);
+    return sheet;
+  }
+
+  hasSheet(key: string): boolean {
+    return this.sheets.has(key);
+  }
+
+  tryGetSheet(key: string): SpriteSheet | undefined {
+    return this.sheets.get(key);
   }
 }
 

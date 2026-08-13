@@ -2,9 +2,10 @@ import type { Camera } from "../Camera";
 import type { Assets } from "../Assets";
 import type { World } from "../world/World";
 import type { Entity } from "../world/Entity";
-import type { TileDef } from "../world/TileMap";
+import type { TileDef, TileMap } from "../world/TileMap";
 import { worldToTile } from "../math/Iso";
 import type { Vec2 } from "../math/Vec2";
+import { BrickRenderer } from "./BrickRenderer";
 
 export interface RendererOptions {
   clearColor?: string;
@@ -21,6 +22,7 @@ export class Renderer {
   hoverTile: Vec2 | null = null;
   /** Optional tile path to highlight (integer coords). */
   pathTiles: Vec2[] | null = null;
+  private readonly bricks = new BrickRenderer();
 
   constructor(
     private readonly ctx: CanvasRenderingContext2D,
@@ -45,27 +47,70 @@ export class Renderer {
     const tileSize = camera.tileSize();
     const map = world.map;
 
-    // Paint tiles in diamond-traversal order (back → front).
+    // Bucket entities by floor tile for iso-order interleaving.
+    const buckets = new Map<number, Entity[]>();
+    const orphan: Entity[] = [];
+    for (const entity of world.entities) {
+      if (!entity.active) continue;
+      const tx = Math.floor(entity.position.x);
+      const ty = Math.floor(entity.position.y);
+      if (!map.inBounds(tx, ty)) {
+        orphan.push(entity);
+        continue;
+      }
+      const key = map.index(tx, ty);
+      const list = buckets.get(key);
+      if (list) list.push(entity);
+      else buckets.set(key, [entity]);
+    }
+
+    // Terrain pass (back → front).
     for (let sum = 0; sum <= map.width + map.height - 2; sum++) {
       for (let tx = 0; tx < map.width; tx++) {
         const ty = sum - tx;
         if (ty < 0 || ty >= map.height) continue;
         const def = map.getDef(tx, ty);
         if (!def) continue;
-        this.drawTile(camera, tx, ty, def, tileSize);
+        this.drawTileColumn(camera, map, tx, ty, def, tileSize);
+        const overlay = map.getOverlayDef(tx, ty);
+        if (overlay) {
+          this.drawOverlay(camera, map, tx, ty, overlay, tileSize);
+        }
       }
     }
 
     if (this.pathTiles && this.pathTiles.length > 0) {
-      this.drawPath(camera, this.pathTiles, tileSize);
+      this.drawPath(camera, map, this.pathTiles, tileSize);
     }
 
     if (this.hoverTile && map.inBounds(this.hoverTile.x, this.hoverTile.y)) {
-      this.drawTileOutline(camera, this.hoverTile.x, this.hoverTile.y, tileSize, "#ffe08a");
+      this.drawTileOutline(
+        camera,
+        map,
+        this.hoverTile.x,
+        this.hoverTile.y,
+        tileSize,
+        "#ffe08a",
+      );
     }
 
-    for (const entity of world.sortedEntities()) {
-      this.drawEntity(entity, camera, assets);
+    // Entity pass in the same iso order (occludes correctly with cliffs).
+    for (let sum = 0; sum <= map.width + map.height - 2; sum++) {
+      for (let tx = 0; tx < map.width; tx++) {
+        const ty = sum - tx;
+        if (ty < 0 || ty >= map.height) continue;
+        const list = buckets.get(map.index(tx, ty));
+        if (!list) continue;
+        list.sort((a, b) => a.depth - b.depth);
+        const elev = map.elevationPx(tx, ty);
+        for (const entity of list) {
+          this.drawEntity(entity, camera, elev, assets);
+        }
+      }
+    }
+
+    for (const entity of orphan.sort((a, b) => a.depth - b.depth)) {
+      this.drawEntity(entity, camera, 0, assets);
     }
 
     // Soft vignette for atmosphere
@@ -83,61 +128,152 @@ export class Renderer {
     ctx.fillRect(0, 0, vw, vh);
   }
 
-  private drawTile(
+  private drawTileColumn(
     camera: Camera,
+    map: TileMap,
     tx: number,
     ty: number,
     def: TileDef,
     tileSize: { width: number; height: number },
   ): void {
+    const levels = map.getHeight(tx, ty);
+    const step = map.layerHeight;
+    const bonus = def.elevation ?? 0;
+
+    if (levels <= 0 && bonus <= 0) {
+      this.drawPrism(camera, tx, ty, 0, def.color, tileSize, true);
+      return;
+    }
+
+    for (let h = 0; h < levels; h++) {
+      const top = (h + 1) * step;
+      const bottom = h * step;
+      const isTop = h === levels - 1 && bonus <= 0;
+      this.drawPrismSlice(
+        camera,
+        tx,
+        ty,
+        bottom,
+        top,
+        h === levels - 1 ? def.color : shade(def.color, -12 - h * 4),
+        tileSize,
+        isTop,
+      );
+    }
+
+    if (bonus > 0) {
+      const base = levels * step;
+      this.drawPrismSlice(
+        camera,
+        tx,
+        ty,
+        base,
+        base + bonus,
+        shade(def.color, 8),
+        tileSize,
+        true,
+      );
+    }
+  }
+
+  private drawOverlay(
+    camera: Camera,
+    map: TileMap,
+    tx: number,
+    ty: number,
+    def: TileDef,
+    tileSize: { width: number; height: number },
+  ): void {
+    const elev = map.elevationPx(tx, ty);
+    const foot = camera.worldToScreenElevated({ x: tx + 0.5, y: ty + 0.5 }, elev);
     const { ctx } = this;
-    const elev = (def.elevation ?? 0) * camera.zoom;
+    const hw = tileSize.width * 0.72;
+    const hh = tileSize.height * 0.72;
+    ctx.beginPath();
+    ctx.moveTo(foot.x, foot.y - hh);
+    ctx.lineTo(foot.x + hw, foot.y);
+    ctx.lineTo(foot.x, foot.y + hh);
+    ctx.lineTo(foot.x - hw, foot.y);
+    ctx.closePath();
+    ctx.fillStyle = def.color;
+    ctx.globalAlpha = 0.92;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  private drawPrism(
+    camera: Camera,
+    tx: number,
+    ty: number,
+    elevPx: number,
+    color: string,
+    tileSize: { width: number; height: number },
+    drawTop: boolean,
+  ): void {
+    this.drawPrismSlice(camera, tx, ty, 0, elevPx, color, tileSize, drawTop);
+  }
+
+  private drawPrismSlice(
+    camera: Camera,
+    tx: number,
+    ty: number,
+    bottomPx: number,
+    topPx: number,
+    color: string,
+    tileSize: { width: number; height: number },
+    drawTop: boolean,
+  ): void {
+    const { ctx } = this;
     const foot = camera.worldToScreen({ x: tx + 0.5, y: ty + 0.5 });
+    const elevTop = topPx * camera.zoom;
+    const elevBottom = bottomPx * camera.zoom;
     const cx = foot.x;
-    const cy = foot.y - elev;
+    const cyTop = foot.y - elevTop;
+    const thickness = elevTop - elevBottom;
     const hw = tileSize.width;
     const hh = tileSize.height;
 
-    // Side face for elevated tiles
-    if (elev > 0) {
+    if (thickness > 0.5) {
       ctx.beginPath();
-      ctx.moveTo(cx - hw, cy);
-      ctx.lineTo(cx, cy + hh);
-      ctx.lineTo(cx, cy + hh + elev);
-      ctx.lineTo(cx - hw, cy + elev);
+      ctx.moveTo(cx - hw, cyTop);
+      ctx.lineTo(cx, cyTop + hh);
+      ctx.lineTo(cx, cyTop + hh + thickness);
+      ctx.lineTo(cx - hw, cyTop + thickness);
       ctx.closePath();
-      ctx.fillStyle = shade(def.color, -25);
+      ctx.fillStyle = shade(color, -25);
       ctx.fill();
 
       ctx.beginPath();
-      ctx.moveTo(cx + hw, cy);
-      ctx.lineTo(cx, cy + hh);
-      ctx.lineTo(cx, cy + hh + elev);
-      ctx.lineTo(cx + hw, cy + elev);
+      ctx.moveTo(cx + hw, cyTop);
+      ctx.lineTo(cx, cyTop + hh);
+      ctx.lineTo(cx, cyTop + hh + thickness);
+      ctx.lineTo(cx + hw, cyTop + thickness);
       ctx.closePath();
-      ctx.fillStyle = shade(def.color, -40);
+      ctx.fillStyle = shade(color, -40);
       ctx.fill();
     }
 
-    // Top diamond
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - hh);
-    ctx.lineTo(cx + hw, cy);
-    ctx.lineTo(cx, cy + hh);
-    ctx.lineTo(cx - hw, cy);
-    ctx.closePath();
-    ctx.fillStyle = def.color;
-    ctx.fill();
+    if (drawTop) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cyTop - hh);
+      ctx.lineTo(cx + hw, cyTop);
+      ctx.lineTo(cx, cyTop + hh);
+      ctx.lineTo(cx - hw, cyTop);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
 
-    if (this.showGrid) {
-      ctx.strokeStyle = "rgba(0,0,0,0.25)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      if (this.showGrid) {
+        ctx.strokeStyle = "rgba(0,0,0,0.25)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
     }
   }
 
   private drawPath(
     camera: Camera,
+    map: TileMap,
     tiles: Vec2[],
     tileSize: { width: number; height: number },
   ): void {
@@ -152,7 +288,8 @@ export class Renderer {
     ctx.beginPath();
     for (let i = 0; i < tiles.length; i++) {
       const t = tiles[i]!;
-      const p = camera.worldToScreen({ x: t.x + 0.5, y: t.y + 0.5 });
+      const elev = map.elevationPx(t.x, t.y);
+      const p = camera.worldToScreenElevated({ x: t.x + 0.5, y: t.y + 0.5 }, elev);
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -160,7 +297,8 @@ export class Renderer {
 
     for (let i = 0; i < tiles.length; i++) {
       const t = tiles[i]!;
-      const p = camera.worldToScreen({ x: t.x + 0.5, y: t.y + 0.5 });
+      const elev = map.elevationPx(t.x, t.y);
+      const p = camera.worldToScreenElevated({ x: t.x + 0.5, y: t.y + 0.5 }, elev);
       const r = Math.max(2, tileSize.height * 0.35);
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
@@ -175,13 +313,15 @@ export class Renderer {
 
   private drawTileOutline(
     camera: Camera,
+    map: TileMap,
     tx: number,
     ty: number,
     tileSize: { width: number; height: number },
     color: string,
   ): void {
     const { ctx } = this;
-    const foot = camera.worldToScreen({ x: tx + 0.5, y: ty + 0.5 });
+    const elev = map.elevationPx(tx, ty);
+    const foot = camera.worldToScreenElevated({ x: tx + 0.5, y: ty + 0.5 }, elev);
     const cx = foot.x;
     const cy = foot.y;
     const hw = tileSize.width;
@@ -198,22 +338,69 @@ export class Renderer {
     ctx.stroke();
   }
 
-  private drawEntity(entity: Entity, camera: Camera, assets?: Assets): void {
+  private drawEntity(
+    entity: Entity,
+    camera: Camera,
+    elevationPx: number,
+    assets?: Assets,
+  ): void {
     const { ctx } = this;
-    const screen = camera.worldToScreen(entity.position);
+    const screen = camera.worldToScreenElevated(entity.position, elevationPx);
     const sprite = entity.sprite;
-    const kind = sprite.kind ?? (sprite.imageKey ? "block" : "actor");
     const ox = (sprite.offsetX ?? 0) * camera.zoom;
     const oy = (sprite.offsetY ?? 0) * camera.zoom;
 
-    if (sprite.imageKey && assets?.has(sprite.imageKey)) {
-      const img = assets.get(sprite.imageKey);
-      const w = (sprite.width ?? img.width) * camera.zoom;
-      const h = (sprite.height ?? img.height) * camera.zoom;
-      ctx.drawImage(img, screen.x - w / 2 + ox, screen.y - h + oy, w, h);
+    if (entity.animator) {
+      this.drawSheetFrame(
+        entity.animator.sheet.image,
+        entity.animator.frame,
+        screen.x,
+        screen.y,
+        camera.zoom,
+        entity.animator.scale * (sprite.scale ?? 1),
+        ox + entity.animator.offsetX * camera.zoom,
+        oy + entity.animator.offsetY * camera.zoom,
+        entity.animator.flipX || !!sprite.flipX,
+      );
       return;
     }
 
+    if (entity.brickModel) {
+      this.bricks.draw(ctx, entity.brickModel, {
+        originX: screen.x + ox,
+        originY: screen.y + oy,
+        scale: (sprite.scale ?? 1) * camera.zoom,
+      });
+      return;
+    }
+
+    if (sprite.sheetKey && assets?.hasSheet(sprite.sheetKey)) {
+      const sheet = assets.getSheet(sprite.sheetKey);
+      const frame = sheet.frame(sprite.frame ?? 0);
+      this.drawSheetFrame(
+        sheet.image,
+        frame,
+        screen.x,
+        screen.y,
+        camera.zoom,
+        sprite.scale ?? 1,
+        ox,
+        oy,
+        !!sprite.flipX,
+      );
+      return;
+    }
+
+    if (sprite.imageKey && assets?.has(sprite.imageKey)) {
+      const img = assets.get(sprite.imageKey);
+      const scale = sprite.scale ?? 1;
+      const w = (sprite.width ?? img.width) * scale * camera.zoom;
+      const h = (sprite.height ?? img.height) * scale * camera.zoom;
+      this.drawImageFoot(img, screen.x + ox, screen.y + oy, w, h, !!sprite.flipX);
+      return;
+    }
+
+    const kind = sprite.kind ?? "actor";
     const color = sprite.color ?? "#f2f2f2";
 
     if (kind === "actor") {
@@ -266,6 +453,58 @@ export class Renderer {
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
+  }
+
+  /** Draw a sheet frame anchored at foot (bottom-center). */
+  private drawSheetFrame(
+    image: CanvasImageSource,
+    frame: { x: number; y: number; w: number; h: number },
+    footX: number,
+    footY: number,
+    zoom: number,
+    scale: number,
+    offsetX: number,
+    offsetY: number,
+    flipX: boolean,
+  ): void {
+    const w = frame.w * scale * zoom;
+    const h = frame.h * scale * zoom;
+    this.drawImageFoot(
+      image,
+      footX + offsetX,
+      footY + offsetY,
+      w,
+      h,
+      flipX,
+      frame.x,
+      frame.y,
+      frame.w,
+      frame.h,
+    );
+  }
+
+  private drawImageFoot(
+    image: CanvasImageSource,
+    footX: number,
+    footY: number,
+    w: number,
+    h: number,
+    flipX: boolean,
+    sx?: number,
+    sy?: number,
+    sw?: number,
+    sh?: number,
+  ): void {
+    const { ctx } = this;
+    ctx.save();
+    ctx.translate(footX, footY);
+    if (flipX) ctx.scale(-1, 1);
+    if (sx !== undefined && sy !== undefined && sw !== undefined && sh !== undefined) {
+      ctx.drawImage(image, sx, sy, sw, sh, -w / 2, -h, w, h);
+    } else {
+      ctx.drawImage(image, -w / 2, -h, w, h);
+    }
+    ctx.restore();
   }
 }
 

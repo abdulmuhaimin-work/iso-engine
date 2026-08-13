@@ -12,6 +12,13 @@ export interface FindPathOptions {
   mode?: PathNeighborMode;
   /** Optional extra blocked predicate (e.g. occupied tiles). */
   isBlocked?: (tx: number, ty: number) => boolean;
+  /**
+   * Max absolute height-level difference allowed between adjacent tiles.
+   * Default 1 (can step up/down one terrace). Use 0 to forbid any climb.
+   */
+  maxClimb?: number;
+  /** Extra A* cost per height level climbed/dropped. Default 0.25. */
+  climbCost?: number;
 }
 
 const CARDINAL: ReadonlyArray<readonly [number, number]> = [
@@ -39,6 +46,8 @@ export function findPath(
   options: FindPathOptions = {},
 ): Vec2[] | null {
   const mode = options.mode ?? "cardinal";
+  const maxClimb = options.maxClimb ?? 1;
+  const climbCost = options.climbCost ?? 0.25;
   const sx = Math.floor(start.x);
   const sy = Math.floor(start.y);
   const gx = Math.floor(goal.x);
@@ -49,8 +58,7 @@ export function findPath(
   if (sx === gx && sy === gy) return [{ x: sx, y: sy }];
 
   const width = map.width;
-  const height = map.height;
-  const size = width * height;
+  const size = width * map.height;
   const idx = (x: number, y: number) => y * width + x;
 
   const gScore = new Float64Array(size).fill(Infinity);
@@ -88,19 +96,31 @@ export function findPath(
 
     const cx = current % width;
     const cy = (current / width) | 0;
+    const ch = map.getHeight(cx, cy);
 
     for (const [dx, dy] of CARDINAL) {
-      const nx = cx + dx;
-      const ny = cy + dy;
-      if (!isTraversable(map, nx, ny, options)) continue;
-      const ni = idx(nx, ny);
-      if (closed[ni]) continue;
-      const tentative = gScore[current]! + 1;
-      if (tentative >= gScore[ni]!) continue;
-      cameFrom[ni] = current;
-      gScore[ni] = tentative;
-      fScore[ni] = tentative + heuristic(nx, ny, gx, gy, mode);
-      open.push(ni);
+      considerNeighbor(
+        cx,
+        cy,
+        ch,
+        cx + dx,
+        cy + dy,
+        1,
+        current,
+        map,
+        options,
+        maxClimb,
+        climbCost,
+        mode,
+        gx,
+        gy,
+        idx,
+        gScore,
+        fScore,
+        cameFrom,
+        closed,
+        open,
+      );
     }
 
     if (mode === "octile") {
@@ -108,22 +128,73 @@ export function findPath(
         const nx = cx + dx;
         const ny = cy + dy;
         if (!isTraversable(map, nx, ny, options)) continue;
-        // No corner cutting: both orthogonal neighbors must be free.
         if (!isTraversable(map, cx + dx, cy, options)) continue;
         if (!isTraversable(map, cx, cy + dy, options)) continue;
-        const ni = idx(nx, ny);
-        if (closed[ni]) continue;
-        const tentative = gScore[current]! + Math.SQRT2;
-        if (tentative >= gScore[ni]!) continue;
-        cameFrom[ni] = current;
-        gScore[ni] = tentative;
-        fScore[ni] = tentative + heuristic(nx, ny, gx, gy, mode);
-        open.push(ni);
+        // Diagonal also respects climb vs the destination cell.
+        considerNeighbor(
+          cx,
+          cy,
+          ch,
+          nx,
+          ny,
+          Math.SQRT2,
+          current,
+          map,
+          options,
+          maxClimb,
+          climbCost,
+          mode,
+          gx,
+          gy,
+          idx,
+          gScore,
+          fScore,
+          cameFrom,
+          closed,
+          open,
+        );
       }
     }
   }
 
   return null;
+}
+
+function considerNeighbor(
+  cx: number,
+  cy: number,
+  ch: number,
+  nx: number,
+  ny: number,
+  baseCost: number,
+  current: number,
+  map: TileMap,
+  options: FindPathOptions,
+  maxClimb: number,
+  climbCost: number,
+  mode: PathNeighborMode,
+  gx: number,
+  gy: number,
+  idx: (x: number, y: number) => number,
+  gScore: Float64Array,
+  fScore: Float64Array,
+  cameFrom: Int32Array,
+  closed: Uint8Array,
+  open: number[],
+): void {
+  void cx;
+  void cy;
+  if (!isTraversable(map, nx, ny, options)) return;
+  const dh = Math.abs(map.getHeight(nx, ny) - ch);
+  if (dh > maxClimb) return;
+  const ni = idx(nx, ny);
+  if (closed[ni]) return;
+  const tentative = gScore[current]! + baseCost + dh * climbCost;
+  if (tentative >= gScore[ni]!) return;
+  cameFrom[ni] = current;
+  gScore[ni] = tentative;
+  fScore[ni] = tentative + heuristic(nx, ny, gx, gy, mode);
+  open.push(ni);
 }
 
 function isTraversable(
@@ -147,7 +218,6 @@ function heuristic(
   const dx = Math.abs(x - gx);
   const dy = Math.abs(y - gy);
   if (mode === "cardinal") return dx + dy;
-  // Octile distance
   return Math.SQRT2 * Math.min(dx, dy) + Math.abs(dx - dy);
 }
 
