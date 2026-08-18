@@ -4,6 +4,7 @@ import {
   type Brick,
   type BrickMetrics,
 } from "./BrickModel";
+import { shade } from "./color";
 
 export interface BrickRenderOptions {
   /** Origin on the canvas where grid (0,0,0) foot sits. */
@@ -153,7 +154,10 @@ export function drawCube(
   ctx.lineTo(cx, topY + th + h);
   ctx.lineTo(cx - tw, topY + h);
   ctx.closePath();
-  ctx.fillStyle = shade(color, -28);
+  const left = ctx.createLinearGradient(cx - tw, topY, cx, topY + th + h);
+  left.addColorStop(0, shade(color, -8));
+  left.addColorStop(1, shade(color, -36));
+  ctx.fillStyle = left;
   ctx.fill();
 
   // Right face
@@ -163,7 +167,10 @@ export function drawCube(
   ctx.lineTo(cx, topY + th + h);
   ctx.lineTo(cx + tw, topY + h);
   ctx.closePath();
-  ctx.fillStyle = shade(color, -48);
+  const right = ctx.createLinearGradient(cx, topY, cx + tw, topY + th + h);
+  right.addColorStop(0, shade(color, -28));
+  right.addColorStop(1, shade(color, -58));
+  ctx.fillStyle = right;
   ctx.fill();
 
   // Top face
@@ -173,27 +180,25 @@ export function drawCube(
   ctx.lineTo(cx, topY + th);
   ctx.lineTo(cx - tw, topY);
   ctx.closePath();
-  ctx.fillStyle = color;
+  const top = ctx.createLinearGradient(cx - tw, topY - th, cx + tw, topY + th);
+  top.addColorStop(0, shade(color, 38));
+  top.addColorStop(0.45, color);
+  top.addColorStop(1, shade(color, -18));
+  ctx.fillStyle = top;
   ctx.fill();
 
-  // Subtle edge
-  ctx.strokeStyle = "rgba(0,0,0,0.2)";
+  ctx.strokeStyle = "rgba(255, 248, 230, 0.28)";
   ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx, topY - th);
+  ctx.lineTo(cx - tw, topY);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(0,0,0,0.28)";
+  ctx.beginPath();
+  ctx.moveTo(cx - tw, topY);
+  ctx.lineTo(cx, topY + th);
+  ctx.lineTo(cx + tw, topY);
   ctx.stroke();
 
   ctx.restore();
-}
-
-function shade(hex: string, amount: number): string {
-  const raw = hex.replace("#", "");
-  if (raw.length !== 6) return hex;
-  const num = parseInt(raw, 16);
-  const r = clampByte(((num >> 16) & 0xff) + amount);
-  const g = clampByte(((num >> 8) & 0xff) + amount);
-  const b = clampByte((num & 0xff) + amount);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-}
-
-function clampByte(v: number): number {
-  return Math.min(255, Math.max(0, v | 0));
 }

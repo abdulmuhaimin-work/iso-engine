@@ -21,7 +21,6 @@ import {
 import type { TileDef, TileMapData } from "../engine";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#view")!;
-const ctx = canvas.getContext("2d")!;
 const statusEl = document.querySelector("#status")!;
 const cursorEl = document.querySelector("#cursor-info")!;
 const paletteEl = document.querySelector("#palette")!;
@@ -31,7 +30,7 @@ const tileForm = document.querySelector("#tile-form")!;
 const jsonOut = document.querySelector<HTMLTextAreaElement>("#json-out")!;
 
 const camera = new Camera({ zoom: 1.2 });
-const renderer = new Renderer(ctx, { clearColor: "#121820", showGrid: true });
+const renderer = new Renderer(canvas, { clearColor: "#121820", showGrid: true });
 
 let doc: EditorDocument = createDefaultDocument();
 let selectedTileId = Number(Object.keys(doc.defs)[0] ?? 1);
@@ -59,7 +58,7 @@ function fitCanvas(): void {
   const h = Math.max(1, Math.floor(rect.height));
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  renderer.resize(w, h);
   camera.resize(w, h);
 }
 
@@ -296,7 +295,7 @@ function frame(): void {
   const world = buildWorld();
   renderer.hoverTile = hover;
   renderer.pathTiles = null;
-  renderer.render(world, camera);
+  renderer.render(world, camera, undefined, performance.now() / 1000);
   refreshJson();
   requestAnimationFrame(frame);
 }

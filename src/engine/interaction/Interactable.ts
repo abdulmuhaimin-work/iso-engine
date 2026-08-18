@@ -3,12 +3,15 @@ import type { World } from "../world/World";
 import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
 
+import type { WebPageViewer } from "../ui/WebPageViewer";
+
 export interface InteractContext {
   world: World;
   actor: Entity;
   target: Entity;
   flags: Flags;
   dialogue: DialogueRunner;
+  webpage?: WebPageViewer;
 }
 
 export interface Interactable {

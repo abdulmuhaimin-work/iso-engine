@@ -19,7 +19,8 @@ export interface FrameContext {
   assets: Assets;
   renderer: Renderer;
   canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
+  /** Present only on the Canvas 2D fallback path. */
+  ctx: CanvasRenderingContext2D | null;
 }
 
 export type GameHook = (frame: FrameContext) => void;
@@ -30,7 +31,7 @@ export type GameHook = (frame: FrameContext) => void;
  */
 export class Game {
   readonly canvas: HTMLCanvasElement;
-  readonly ctx: CanvasRenderingContext2D;
+  readonly ctx: CanvasRenderingContext2D | null;
   readonly camera: Camera;
   readonly input: Input;
   readonly assets: Assets;
@@ -48,14 +49,11 @@ export class Game {
 
   constructor(options: GameOptions) {
     this.canvas = options.canvas;
-    const ctx = this.canvas.getContext("2d");
-    if (!ctx) throw new Error("2D canvas context unavailable");
-    this.ctx = ctx;
-
     this.camera = new Camera(options.camera);
     this.input = new Input(this.canvas);
     this.assets = new Assets();
-    this.renderer = new Renderer(this.ctx, options.renderer);
+    this.renderer = new Renderer(this.canvas, options.renderer);
+    this.ctx = this.renderer.backend === "canvas2d" ? this.canvas.getContext("2d") : null;
     this.maxDelta = options.maxDelta ?? 1 / 20;
 
     this.onResize = () => this.fitToWindow();
@@ -71,7 +69,7 @@ export class Game {
     this.canvas.height = Math.floor(h * dpr);
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.renderer.resize(w, h);
     this.camera.resize(w, h);
   }
 

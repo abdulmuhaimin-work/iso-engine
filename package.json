@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "demo": "vite --open /demo.html",
     "editor": "vite --open /editor.html",
     "builder": "vite --open /builder.html",
     "build": "tsc && vite build",

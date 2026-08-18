@@ -3,6 +3,7 @@ import type { World } from "../world/World";
 import type { Assets } from "../Assets";
 import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
+import type { WebPageViewer } from "../ui/WebPageViewer";
 import type { Vec2 } from "../math/Vec2";
 import { distance } from "../math/Vec2";
 import type {
@@ -23,6 +24,7 @@ export interface SceneManagerOptions {
   dialogue: DialogueRunner;
   assets: Assets;
   player: Entity;
+  webpage?: WebPageViewer;
   /** Optional overlay element that receives opacity 0–1 during fades. */
   fadeElement?: HTMLElement | null;
 }
@@ -37,6 +39,7 @@ export class SceneManager {
   readonly dialogue: DialogueRunner;
   readonly assets: Assets;
   readonly player: Entity;
+  readonly webpage?: WebPageViewer;
 
   private readonly defs = new Map<string, SceneDefinition>();
   private current: ActiveScene | null = null;
@@ -52,6 +55,7 @@ export class SceneManager {
     this.dialogue = options.dialogue;
     this.assets = options.assets;
     this.player = options.player;
+    this.webpage = options.webpage;
     this.fadeElement = options.fadeElement ?? null;
     this.syncFadeDom();
   }
@@ -111,6 +115,7 @@ export class SceneManager {
     this.phase = "fadeOut";
     this.fadeTimer = 0;
     if (this.dialogue.active) this.dialogue.end();
+    this.webpage?.close();
   }
 
   /** Drive fades. Call every frame from the game loop. */
@@ -191,6 +196,7 @@ export class SceneManager {
       dialogue: this.dialogue,
       assets: this.assets,
       player: this.player,
+      webpage: this.webpage,
     };
     const built = def.build(ctx);
     const spawn = built.spawns[spawnId] ?? built.spawns.default;

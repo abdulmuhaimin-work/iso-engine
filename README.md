@@ -11,6 +11,15 @@ npm run dev
 
 Build for production: `npm run build` · preview: `npm run preview`
 
+| URL | App |
+| --- | --- |
+| [/](http://localhost:5173/) | Interactive resume (default) |
+| [/demo.html](http://localhost:5173/demo.html) | Harbor city demo |
+| [/editor.html](http://localhost:5173/editor.html) | Tilemap editor |
+| [/builder.html](http://localhost:5173/builder.html) | Brick / prop builder |
+
+Personalize the resume in **`src/resume/profile.ts`** (name, jobs, projects, skills, contact). Campus NPCs and dialogue are generated from that file.
+
 ## Controls (demo)
 
 | Input | Action |
@@ -27,12 +36,15 @@ Build for production: `npm run build` · preview: `npm run preview`
 
 ```
 src/engine/ …
-src/editor/        # tilemap + tile palette editor
-src/builder/       # lego-style isometric brick/prop builder
-src/demo/ …
-builder.html
+src/play/boot.ts   # shared click-to-move loop
+src/resume/        # interactive resume (homepage)
+src/demo/          # harbor city sample (kept)
+src/editor/        # tilemap editor
+src/builder/       # brick / prop builder
+index.html         # resume
+demo.html          # city demo
 editor.html
-index.html
+builder.html
 ```
 
 Import from the barrel:

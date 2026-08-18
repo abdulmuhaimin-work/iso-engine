@@ -1,8 +1,26 @@
+export type TileMaterial =
+  | "grass"
+  | "hedge"
+  | "water"
+  | "wood"
+  | "stone"
+  | "roof"
+  | "dirt"
+  | "sand"
+  | "path"
+  | "carpet"
+  | "road"
+  | "cave"
+  | "flower"
+  | "generic";
+
 export interface TileDef {
   id: number;
   name: string;
   /** CSS color used by the procedural diamond renderer. */
   color: string;
+  /** Optional material; inferred from `name` when omitted. */
+  material?: TileMaterial;
   walkable: boolean;
   /**
    * Optional extra visual rise in screen px at zoom 1 (on top of map height).

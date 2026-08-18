@@ -5,6 +5,7 @@ import type { Assets } from "../Assets";
 import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
 import type { SceneManager } from "./SceneManager";
+import type { WebPageViewer } from "../ui/WebPageViewer";
 
 export interface SpawnPoint {
   id: string;
@@ -42,6 +43,7 @@ export interface SceneContext {
   assets: Assets;
   /** Persistent player entity — do not recreate; place via spawn. */
   player: Entity;
+  webpage?: WebPageViewer;
 }
 
 export interface SceneDefinition {

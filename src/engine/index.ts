@@ -6,6 +6,7 @@ export {
   Renderer,
   pickTile,
   type RendererOptions,
+  type RenderBackend,
 } from "./render/Renderer";
 export {
   SpriteSheet,
@@ -49,7 +50,7 @@ export {
   clamp,
   type Vec2,
 } from "./math/Vec2";
-export { TileMap, createFilledMap, type TileDef, type TileMapData } from "./world/TileMap";
+export { TileMap, createFilledMap, type TileDef, type TileMapData, type TileMaterial } from "./world/TileMap";
 export { Entity, type EntityId, type SpriteDraw } from "./world/Entity";
 export { World, type MoveOptions } from "./world/World";
 export {
@@ -78,6 +79,7 @@ export {
   type DialogueListener,
 } from "./dialogue/DialogueRunner";
 export { DialogueUI, type DialogueUIOptions } from "./dialogue/DialogueUI";
+export { WebPageViewer, type WebPage, type WebPageViewerOptions } from "./ui/WebPageViewer";
 export type {
   SceneDefinition,
   SceneContext,
