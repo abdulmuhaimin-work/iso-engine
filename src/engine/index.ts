@@ -80,6 +80,18 @@ export {
 } from "./dialogue/DialogueRunner";
 export { DialogueUI, type DialogueUIOptions } from "./dialogue/DialogueUI";
 export { WebPageViewer, type WebPage, type WebPageViewerOptions } from "./ui/WebPageViewer";
+export {
+  MiniGameHost,
+  type MiniGameHostOptions,
+} from "./minigame/MiniGameHost";
+export type {
+  MiniGame,
+  MiniGameContext,
+  MiniGameFactory,
+  MiniGamePointer,
+} from "./minigame/MiniGame";
+export { nearWater, isWaterTile } from "./minigame/water";
+export { addMinigameSpot } from "./minigame/spots";
 export type {
   SceneDefinition,
   SceneContext,

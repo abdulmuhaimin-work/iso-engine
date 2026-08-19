@@ -6,6 +6,7 @@ import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
 import type { SceneManager } from "./SceneManager";
 import type { WebPageViewer } from "../ui/WebPageViewer";
+import type { MiniGameHost } from "../minigame/MiniGameHost";
 
 export interface SpawnPoint {
   id: string;
@@ -44,6 +45,7 @@ export interface SceneContext {
   /** Persistent player entity — do not recreate; place via spawn. */
   player: Entity;
   webpage?: WebPageViewer;
+  minigames?: MiniGameHost;
 }
 
 export interface SceneDefinition {

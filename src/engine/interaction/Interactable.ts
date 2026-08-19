@@ -4,6 +4,7 @@ import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
 
 import type { WebPageViewer } from "../ui/WebPageViewer";
+import type { MiniGameHost } from "../minigame/MiniGameHost";
 
 export interface InteractContext {
   world: World;
@@ -12,6 +13,7 @@ export interface InteractContext {
   flags: Flags;
   dialogue: DialogueRunner;
   webpage?: WebPageViewer;
+  minigames?: MiniGameHost;
 }
 
 export interface Interactable {

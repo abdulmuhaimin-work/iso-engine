@@ -3,6 +3,7 @@ import {
   TileMap,
   Entity,
   BrickModel,
+  addMinigameSpot,
   type SceneDefinition,
 } from "../engine";
 import { createIslandMap, createCaveMap } from "./map";
@@ -201,7 +202,15 @@ export function createIslandScene(): SceneDefinition {
       ]);
       addNpc(world, 22, 35, "#9ad0c2", "Dockhand", [
         "Ships come in at dusk. Don't stand on the sand when the tide turns.",
+        "If you brought a line, the south beach is biting. Walk to the water and press E.",
       ]);
+      if (ctx.minigames) {
+        addMinigameSpot(world, 22, 43, ctx.minigames, "fishing", {
+          name: "South beach",
+          prompt: "Fish",
+          color: "#6b5344",
+        });
+      }
       addNpc(world, 40, 8, "#c4a882", "Guard", [
         "Terrace is clear. Cave mouth is further up — sealed for a reason.",
       ]);

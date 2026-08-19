@@ -9,10 +9,13 @@ import {
   WebPageViewer,
   InteractionSystem,
   SceneManager,
+  MiniGameHost,
+  nearWater,
   pickTile,
   type SceneDefinition,
 } from "../engine";
 import { createDemoHeroSheet } from "../demo/heroSheet";
+import { createFishingGame } from "../minigames/fishing";
 
 export interface PlayableOptions {
   scenes: SceneDefinition[];
@@ -34,6 +37,7 @@ export function bootPlayable(options: PlayableOptions): void {
   const dialogueRoot = document.querySelector<HTMLElement>("#dialogue-root");
   const fadeEl = document.querySelector<HTMLElement>("#fade");
   const webpageRoot = document.querySelector<HTMLElement>("#webpage-root");
+  const minigameRoot = document.querySelector<HTMLElement>("#minigame-root");
   if (!canvas || !hud || !promptEl || !dialogueRoot || !fadeEl) {
     throw new Error("Missing required DOM nodes");
   }
@@ -53,6 +57,11 @@ export function bootPlayable(options: PlayableOptions): void {
   const dialogue = new DialogueRunner(flags);
   new DialogueUI({ root: dialogueRoot, runner: dialogue });
 
+  const minigames = minigameRoot
+    ? new MiniGameHost({ root: minigameRoot, flags, input: game.input })
+    : undefined;
+  minigames?.register("fishing", createFishingGame);
+
   const heroArt = createDemoHeroSheet();
   game.assets.registerSheet("hero", heroArt.sheet);
 
@@ -70,6 +79,7 @@ export function bootPlayable(options: PlayableOptions): void {
     assets: game.assets,
     player,
     webpage,
+    minigames,
     fadeElement: fadeEl,
   });
   scenes.registerAll(options.scenes);
@@ -80,6 +90,7 @@ export function bootPlayable(options: PlayableOptions): void {
     flags,
     dialogue,
     webpage,
+    minigames,
   });
   const mover = new PathFollower({ mode: "cardinal", speed: 3.2, maxClimb: 1 });
   game.camera.lookAt(player.position);
@@ -120,6 +131,19 @@ export function bootPlayable(options: PlayableOptions): void {
     }
 
     if (scenes.transitioning) {
+      mover.clear();
+      syncHeroAnim(false, 0, 0);
+      player.animator?.update(dt);
+      game.renderer.pathTiles = null;
+      game.renderer.hoverTile = null;
+      promptEl.classList.add("hidden");
+      interactions.focus = null;
+      return;
+    }
+
+    if (minigames?.active) {
+      if (input.justPressed("Escape")) minigames.stop();
+      else minigames.update(dt);
       mover.clear();
       syncHeroAnim(false, 0, 0);
       player.animator?.update(dt);
@@ -177,7 +201,11 @@ export function bootPlayable(options: PlayableOptions): void {
       if (dest) mover.setGoal(world, player, dest);
     }
 
-    if (input.justPressed("KeyE")) interactions.tryInteract(player);
+    if (input.justPressed("KeyE")) {
+      if (!interactions.tryInteract(player) && minigames && nearWater(world.map, player.position)) {
+        minigames.play("fishing");
+      }
+    }
 
     const prev = { x: player.position.x, y: player.position.y };
     mover.update(world, player, dt);
@@ -185,7 +213,8 @@ export function bootPlayable(options: PlayableOptions): void {
 
     scenes.checkStepPortals();
     interactions.update(player);
-    const prompt = interactions.promptText();
+    const prompt = interactions.promptText()
+      ?? (nearWater(world.map, player.position) ? "[E] Fish · water" : null);
     if (prompt) {
       promptEl.textContent = prompt;
       promptEl.classList.remove("hidden");
@@ -199,7 +228,11 @@ export function bootPlayable(options: PlayableOptions): void {
 
   game.onRender = ({ camera, renderer, assets, elapsed }) => {
     const world = scenes.world;
-    renderer.render(world, camera, assets, elapsed);
+    if (!minigames?.active) {
+      renderer.render(world, camera, assets, elapsed);
+    } else {
+      minigames.render();
+    }
 
     const tile = pickTile(camera, game.input.mouse);
     const def = world.map.getDef(tile.x, tile.y);
@@ -207,7 +240,9 @@ export function bootPlayable(options: PlayableOptions): void {
     const extra = options.hudExtra?.(flags) ?? "";
     const status = scenes.transitioning
       ? "traveling"
-      : dialogue.active || webpage?.active
+      : minigames?.active
+        ? minigames.currentId ?? "minigame"
+        : dialogue.active || webpage?.active
         ? "reading"
         : remaining > 0
           ? `path ${remaining}`
