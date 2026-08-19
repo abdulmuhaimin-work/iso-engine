@@ -5,9 +5,9 @@ type Phase = "ready" | "casting" | "scored" | "missed";
 
 const CAST_MIN = 0.08;
 const CAST_MAX = 0.98;
-const SPEED_BASE = 0.9;
-const SPEED_STEP = 0.2;
-const SPEED_CAP = 3.6;
+const SPEED_BASE = 0.82;
+const SPEED_STEP = 0.14;
+const SPEED_CAP = 2.2;
 
 interface Point {
   x: number;
@@ -47,6 +47,7 @@ class FishingGame implements MiniGame {
   private rodPoint: Point = { x: 170, y: 410 };
   private prevHeld = false;
   private lastThrowDistance = 0;
+  private landingSpread = 34;
 
   start(ctx: MiniGameContext): void {
     this.flags = ctx.flags;
@@ -127,7 +128,7 @@ class FishingGame implements MiniGame {
     this.hook = this.powerToLanding(this.power);
     this.splash = 1;
     this.lastThrowDistance = distance(this.hook, this.fish);
-    const hitRadius = this.fishRadius + 14;
+    const hitRadius = this.currentHitRadius();
     if (this.lastThrowDistance <= hitRadius) {
       this.score += 1;
       this.flags?.set("fish_count", this.score);
@@ -141,6 +142,7 @@ class FishingGame implements MiniGame {
       this.phaseTimer = 0;
       this.message = "Hit! New fish incoming…";
       this.castSpeed = Math.min(SPEED_CAP, SPEED_BASE + this.score * SPEED_STEP);
+      this.landingSpread = Math.max(12, 34 - this.score * 1.6);
       return;
     }
 
@@ -173,6 +175,7 @@ class FishingGame implements MiniGame {
     this.message = "Hold Space to charge, release to cast";
     this.prevHeld = isHeld(ctx);
     this.lastThrowDistance = 0;
+    this.landingSpread = 34;
     this.flags?.set("fish_count", 0);
     this.flags?.set("last_fish", "Fishing");
   }
@@ -195,10 +198,14 @@ class FishingGame implements MiniGame {
   }
 
   private randomFish(): Point {
-    const m = 36;
+    const p = CAST_MIN + Math.random() * (CAST_MAX - CAST_MIN);
+    const base = this.powerToLanding(p);
+    const offset = (Math.random() * 2 - 1) * this.landingSpread;
+    const normal = this.castNormal(p);
+    const m = 30;
     return {
-      x: this.waterRect.x + m + Math.random() * Math.max(20, this.waterRect.w - m * 2),
-      y: this.waterRect.y + m + Math.random() * Math.max(20, this.waterRect.h - m * 2),
+      x: clamp(base.x + normal.x * offset, this.waterRect.x + m, this.waterRect.x + this.waterRect.w - m),
+      y: clamp(base.y + normal.y * offset, this.waterRect.y + m, this.waterRect.y + this.waterRect.h - m),
     };
   }
 
@@ -208,6 +215,22 @@ class FishingGame implements MiniGame {
     const yCurve = 0.15 + Math.abs(p - 0.5) * 1.25;
     const y = this.waterRect.y + this.waterRect.h * clamp(yCurve, 0.08, 0.95);
     return { x, y };
+  }
+
+  private castNormal(power: number): Point {
+    const eps = 0.01;
+    const a = this.powerToLanding(clamp(power - eps, CAST_MIN, CAST_MAX));
+    const b = this.powerToLanding(clamp(power + eps, CAST_MIN, CAST_MAX));
+    const tx = b.x - a.x;
+    const ty = b.y - a.y;
+    const len = Math.hypot(tx, ty) || 1;
+    // perpendicular to trajectory
+    return { x: -ty / len, y: tx / len };
+  }
+
+  private currentHitRadius(): number {
+    // generous early, tighter later
+    return Math.max(22, 44 - this.score * 1.4);
   }
 
   private drawHud(g: CanvasRenderingContext2D, width: number, height: number): void {
@@ -230,6 +253,9 @@ class FishingGame implements MiniGame {
     g.fillText(`Bar speed ${this.castSpeed.toFixed(2)}x`, width - 260, 50);
 
     drawMeter(g, width / 2 - 180, height - 68, 360, 16, this.power, "#7ec8e3", "Cast power");
+    g.fillStyle = "rgba(232,238,244,0.7)";
+    g.font = "12px system-ui, sans-serif";
+    g.fillText(`Hit radius ${Math.round(this.currentHitRadius())} px`, width / 2 + 194, height - 55);
     g.fillStyle = this.phase === "missed" ? "#ffb1a2" : "#ffe08a";
     g.font = "16px system-ui, sans-serif";
     centerText(g, this.message, width / 2, height - 28);
@@ -368,6 +394,22 @@ function drawRod(
   g.beginPath();
   g.moveTo(rodPoint.x + 36, rodPoint.y - 12);
   g.quadraticCurveTo((rodPoint.x + hook.x) * 0.5, rodPoint.y - 34, hook.x, hook.y);
+  g.stroke();
+
+  // Faint aim lane preview so reachable cast region is visible.
+  g.strokeStyle = "rgba(190, 220, 235, 0.15)";
+  g.lineWidth = 1;
+  g.beginPath();
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    const x = hook.x * t + (rodPoint.x + 36) * (1 - t);
+    const y =
+      (1 - t) * (1 - t) * (rodPoint.y - 12)
+      + 2 * (1 - t) * t * (rodPoint.y - 34)
+      + t * t * hook.y;
+    if (i === 0) g.moveTo(x, y);
+    else g.lineTo(x, y);
+  }
   g.stroke();
 }
 
