@@ -25,6 +25,10 @@ bootPlayable({
       flags.get("visited_skills") ? "skills" : null,
       flags.get("visited_contact") ? "contact" : null,
     ].filter(Boolean);
-    return bits.length ? `  ·  ${PROFILE.name} · ${bits.join(" · ")}` : `  ·  ${PROFILE.name}`;
+    const fish = flags.get("last_fish");
+    const fishBit = fish ? ` · ${fish}` : "";
+    return bits.length
+      ? `  ·  ${PROFILE.name} · ${bits.join(" · ")}${fishBit}`
+      : `  ·  ${PROFILE.name}${fishBit}`;
   },
 });

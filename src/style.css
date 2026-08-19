@@ -181,6 +181,28 @@ body {
   transition: none;
 }
 
+#minigame-root {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+#minigame-root.active {
+  pointer-events: auto;
+}
+
+.minigame-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #152028;
+}
+
+.minigame-root:not(.active) .minigame-canvas {
+  display: none;
+}
+
 #webpage-root {
   position: fixed;
   inset: 0;

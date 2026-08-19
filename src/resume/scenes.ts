@@ -3,6 +3,7 @@ import {
   TileMap,
   Entity,
   BrickModel,
+  addMinigameSpot,
   type SceneDefinition,
 } from "../engine";
 import { PRESETS } from "../builder/presets";
@@ -44,7 +45,7 @@ export function createLobbyScene(): SceneDefinition {
   return {
     id: "lobby",
     name: "Campus",
-    build: () => {
+    build: (ctx) => {
       const world = new World(new TileMap(createLobbyMap()));
 
       addPage(world, 11, 9, "#7ec8e3", "Concierge", "about", "visited_about");
@@ -60,6 +61,14 @@ export function createLobbyScene(): SceneDefinition {
 
       addPage(world, 4, 11, "#c4a882", "Skills gardener", "skills", "visited_skills");
       addPage(world, 11, 16, "#c9b896", "Mailbox", "contact", "visited_contact", "block");
+
+      if (ctx.minigames) {
+        addMinigameSpot(world, 6, 9, ctx.minigames, "fishing", {
+          name: "Garden pool",
+          prompt: "Fish",
+          color: "#5a4636",
+        });
+      }
 
       const terminal = world.add(
         new Entity(

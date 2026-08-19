@@ -11,6 +11,7 @@ bootPlayable({
   hudExtra: (flags) => {
     const coin = flags.get("coins") === 1 ? " · 1 coin" : "";
     const flower = flags.get("has_flower") ? " · flower" : "";
-    return coin + flower;
+    const fish = flags.get("last_fish") ? ` · ${flags.get("last_fish")}` : "";
+    return coin + flower + fish;
   },
 });

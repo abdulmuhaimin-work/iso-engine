@@ -4,6 +4,7 @@ import type { World } from "../world/World";
 import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
 import type { WebPageViewer } from "../ui/WebPageViewer";
+import type { MiniGameHost } from "../minigame/MiniGameHost";
 import {
   isInteractableEnabled,
   type Interactable,
@@ -15,6 +16,7 @@ export interface InteractionSystemOptions {
   flags: Flags;
   dialogue: DialogueRunner;
   webpage?: WebPageViewer;
+  minigames?: MiniGameHost;
   /** Default interact key (KeyboardEvent.code). */
   key?: string;
 }
@@ -33,6 +35,7 @@ export class InteractionSystem {
   flags: Flags;
   dialogue: DialogueRunner;
   webpage?: WebPageViewer;
+  minigames?: MiniGameHost;
   key: string;
   focus: InteractionFocus | null = null;
 
@@ -41,6 +44,7 @@ export class InteractionSystem {
     this.flags = options.flags;
     this.dialogue = options.dialogue;
     this.webpage = options.webpage;
+    this.minigames = options.minigames;
     this.key = options.key ?? "KeyE";
   }
 
@@ -49,7 +53,7 @@ export class InteractionSystem {
    * Skips scanning while dialogue is open.
    */
   update(actor: Entity): void {
-    if (this.dialogue.active || this.webpage?.active) {
+    if (this.dialogue.active || this.webpage?.active || this.minigames?.active) {
       this.focus = null;
       return;
     }
@@ -74,7 +78,9 @@ export class InteractionSystem {
 
   /** Activate current focus (e.g. on KeyE). Returns true if something ran. */
   tryInteract(actor: Entity): boolean {
-    if (this.dialogue.active || this.webpage?.active || !this.focus) return false;
+    if (this.dialogue.active || this.webpage?.active || this.minigames?.active || !this.focus) {
+      return false;
+    }
     const { entity, interactable } = this.focus;
     const ctx: InteractContext = {
       world: this.world,
@@ -83,6 +89,7 @@ export class InteractionSystem {
       flags: this.flags,
       dialogue: this.dialogue,
       webpage: this.webpage,
+      minigames: this.minigames,
     };
     interactable.onInteract(ctx);
     return true;

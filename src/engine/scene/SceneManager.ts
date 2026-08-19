@@ -4,6 +4,7 @@ import type { Assets } from "../Assets";
 import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
 import type { WebPageViewer } from "../ui/WebPageViewer";
+import type { MiniGameHost } from "../minigame/MiniGameHost";
 import type { Vec2 } from "../math/Vec2";
 import { distance } from "../math/Vec2";
 import type {
@@ -25,6 +26,7 @@ export interface SceneManagerOptions {
   assets: Assets;
   player: Entity;
   webpage?: WebPageViewer;
+  minigames?: MiniGameHost;
   /** Optional overlay element that receives opacity 0–1 during fades. */
   fadeElement?: HTMLElement | null;
 }
@@ -40,6 +42,7 @@ export class SceneManager {
   readonly assets: Assets;
   readonly player: Entity;
   readonly webpage?: WebPageViewer;
+  readonly minigames?: MiniGameHost;
 
   private readonly defs = new Map<string, SceneDefinition>();
   private current: ActiveScene | null = null;
@@ -56,6 +59,7 @@ export class SceneManager {
     this.assets = options.assets;
     this.player = options.player;
     this.webpage = options.webpage;
+    this.minigames = options.minigames;
     this.fadeElement = options.fadeElement ?? null;
     this.syncFadeDom();
   }
@@ -116,6 +120,7 @@ export class SceneManager {
     this.fadeTimer = 0;
     if (this.dialogue.active) this.dialogue.end();
     this.webpage?.close();
+    this.minigames?.stop();
   }
 
   /** Drive fades. Call every frame from the game loop. */
@@ -197,6 +202,7 @@ export class SceneManager {
       assets: this.assets,
       player: this.player,
       webpage: this.webpage,
+      minigames: this.minigames,
     };
     const built = def.build(ctx);
     const spawn = built.spawns[spawnId] ?? built.spawns.default;
