@@ -81,6 +81,11 @@ export {
 export { DialogueUI, type DialogueUIOptions } from "./dialogue/DialogueUI";
 export { WebPageViewer, type WebPage, type WebPageViewerOptions } from "./ui/WebPageViewer";
 export {
+  TouchControls,
+  screenStickToWorldStep,
+  type TouchControlsOptions,
+} from "./ui/TouchControls";
+export {
   MiniGameHost,
   type MiniGameHostOptions,
 } from "./minigame/MiniGameHost";

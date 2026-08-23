@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>iso-engine · city demo</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -10,7 +10,7 @@
     <div id="ui">
       <h1>harbor city demo</h1>
       <p>
-        Click to move · E talk / fish / browse kiosks in new scenes / explore plaza gate ·
+        Tap or drag stick to move · Interact for talk / fish / browse ·
         <a href="/">resume</a>
         ·
         <a href="/editor.html">tilemap editor</a>
@@ -20,6 +20,7 @@
       <div id="hud"></div>
       <div id="prompt" class="prompt hidden"></div>
     </div>
+    <div id="touch-controls" aria-hidden="true"></div>
     <div id="dialogue-root"></div>
     <div id="webpage-root"></div>
     <div id="minigame-root"></div>

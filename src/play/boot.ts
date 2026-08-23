@@ -10,6 +10,8 @@ import {
   InteractionSystem,
   SceneManager,
   MiniGameHost,
+  TouchControls,
+  screenStickToWorldStep,
   nearWater,
   pickTile,
   type SceneDefinition,
@@ -38,9 +40,13 @@ export function bootPlayable(options: PlayableOptions): void {
   const fadeEl = document.querySelector<HTMLElement>("#fade");
   const webpageRoot = document.querySelector<HTMLElement>("#webpage-root");
   const minigameRoot = document.querySelector<HTMLElement>("#minigame-root");
+  const touchRoot = document.querySelector<HTMLElement>("#touch-controls");
   if (!canvas || !hud || !promptEl || !dialogueRoot || !fadeEl) {
     throw new Error("Missing required DOM nodes");
   }
+
+  const touch = touchRoot ? new TouchControls({ root: touchRoot }) : undefined;
+  const interactLabel = () => (touch?.active ? "Interact ·" : "[E]");
 
   const webpage = webpageRoot
     ? new WebPageViewer({ root: webpageRoot })
@@ -131,6 +137,7 @@ export function bootPlayable(options: PlayableOptions): void {
     }
 
     if (scenes.transitioning) {
+      touch?.setSuppressed(true);
       mover.clear();
       syncHeroAnim(false, 0, 0);
       player.animator?.update(dt);
@@ -142,6 +149,7 @@ export function bootPlayable(options: PlayableOptions): void {
     }
 
     if (minigames?.active) {
+      touch?.setSuppressed(true);
       if (input.justPressed("Escape")) minigames.stop();
       else minigames.update(dt);
       mover.clear();
@@ -155,6 +163,7 @@ export function bootPlayable(options: PlayableOptions): void {
     }
 
     if (dialogue.active || webpage?.active) {
+      touch?.setSuppressed(true);
       if (input.justPressed("Space") || input.justPressed("Enter")) {
         if (dialogue.active) {
           const node = dialogue.currentNode;
@@ -177,6 +186,8 @@ export function bootPlayable(options: PlayableOptions): void {
       return;
     }
 
+    touch?.setSuppressed(false);
+
     const world = scenes.world;
     const axis = input.moveAxis();
     if (axis.x !== 0 || axis.y !== 0) {
@@ -191,17 +202,56 @@ export function bootPlayable(options: PlayableOptions): void {
       camera.zoomBy(input.wheelDelta > 0 ? 0.9 : 1.1);
     }
 
-    if (input.justPressed("Space")) camera.lookAt(player.position);
+    const zoomSteps = touch?.consumeZoomSteps() ?? 0;
+    if (zoomSteps > 0) {
+      for (let i = 0; i < zoomSteps; i++) camera.zoomBy(1.1);
+    } else if (zoomSteps < 0) {
+      for (let i = 0; i < -zoomSteps; i++) camera.zoomBy(0.9);
+    }
+
+    if (input.justPressed("Space") || touch?.consumeRecenter()) {
+      camera.lookAt(player.position);
+    }
 
     const hover = pickTile(camera, input.mouse);
     game.renderer.hoverTile = hover;
 
-    if (input.mousePressed) {
+    // Virtual stick walks the player (iso-aligned cardinal steps).
+    const stickStep = touch ? screenStickToWorldStep(touch.walkAxis()) : null;
+    if (stickStep) {
+      const from = {
+        x: Math.floor(player.position.x),
+        y: Math.floor(player.position.y),
+      };
+      // Aim a few tiles ahead so pathing stays smooth while holding the stick.
+      const ahead = {
+        x: from.x + stickStep.x * 3,
+        y: from.y + stickStep.y * 3,
+      };
+      const dest =
+        world.clampWalkable(ahead.x, ahead.y) ??
+        world.clampWalkable(from.x + stickStep.x, from.y + stickStep.y);
+      if (dest && (dest.x !== from.x || dest.y !== from.y)) {
+        const needRepath =
+          !mover.active ||
+          mover.tiles.length === 0 ||
+          (() => {
+            const end = mover.tiles[mover.tiles.length - 1]!;
+            const curDir =
+              Math.abs(end.x - from.x) >= Math.abs(end.y - from.y)
+                ? { x: Math.sign(end.x - from.x), y: 0 }
+                : { x: 0, y: Math.sign(end.y - from.y) };
+            return curDir.x !== stickStep.x || curDir.y !== stickStep.y;
+          })();
+        if (needRepath) mover.setGoal(world, player, dest);
+      }
+    } else if (input.mousePressed) {
       const dest = world.clampWalkable(hover.x, hover.y);
       if (dest) mover.setGoal(world, player, dest);
     }
 
-    if (input.justPressed("KeyE")) {
+    const wantInteract = input.justPressed("KeyE") || Boolean(touch?.consumeInteract());
+    if (wantInteract) {
       if (!interactions.tryInteract(player) && minigames && nearWater(world.map, player.position)) {
         minigames.play("fishing");
       }
@@ -211,10 +261,17 @@ export function bootPlayable(options: PlayableOptions): void {
     mover.update(world, player, dt);
     syncHeroAnim(mover.active, player.position.x - prev.x, player.position.y - prev.y);
 
+    // Keep the camera following on touch so the stick stays useful.
+    if (touch?.active && (stickStep || mover.active)) {
+      camera.lookAt(player.position);
+    }
+
     scenes.checkStepPortals();
     interactions.update(player);
-    const prompt = interactions.promptText()
-      ?? (nearWater(world.map, player.position) ? "[E] Fish · water" : null);
+    const label = interactLabel();
+    const prompt =
+      interactions.promptText(label) ??
+      (nearWater(world.map, player.position) ? `${label} Fish · water` : null);
     if (prompt) {
       promptEl.textContent = prompt;
       promptEl.classList.remove("hidden");

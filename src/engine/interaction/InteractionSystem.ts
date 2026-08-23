@@ -95,10 +95,13 @@ export class InteractionSystem {
     return true;
   }
 
-  promptText(): string | null {
+  /**
+   * @param keyLabel Shown before the prompt (e.g. "[E]" or "Interact").
+   */
+  promptText(keyLabel = "[E]"): string | null {
     if (!this.focus) return null;
     const { interactable } = this.focus;
     const name = interactable.name ?? "nearby";
-    return `[E] ${interactable.prompt} · ${name}`;
+    return `${keyLabel} ${interactable.prompt} · ${name}`;
   }
 }

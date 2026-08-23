@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Abdul Muhaimin · Interactive resume</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -10,8 +10,7 @@
     <div id="ui">
       <h1>interactive resume</h1>
       <p>
-        Click to move · E opens a webpage or fish by the pool · kiosk loads abdulmuhaimin.my ·
-        Esc closes ·
+        Tap or drag stick to move · Interact opens a webpage or fish by the pool ·
         <a href="/demo.html">city demo</a>
         ·
         <a href="/editor.html">tilemap</a>
@@ -21,6 +20,7 @@
       <div id="hud"></div>
       <div id="prompt" class="prompt hidden"></div>
     </div>
+    <div id="touch-controls" aria-hidden="true"></div>
     <div id="dialogue-root"></div>
     <div id="webpage-root"></div>
     <div id="minigame-root"></div>
