@@ -113,10 +113,11 @@ export class TouchControls {
   }
 
   private syncVisibility(forceVisible?: boolean): void {
+    // Coarse pointers (phones) and any touch-capable device (iPad, even in
+    // "desktop" mode) get on-screen controls. Mouse-only desktops stay clean.
     const coarse = window.matchMedia("(pointer: coarse)").matches;
-    const narrow = window.matchMedia("(max-width: 960px)").matches;
     const hasTouch = navigator.maxTouchPoints > 0;
-    const touchLikely = Boolean(forceVisible || coarse || (hasTouch && narrow));
+    const touchLikely = Boolean(forceVisible || coarse || hasTouch);
     this.root.classList.toggle("touch-controls--visible", touchLikely);
     this.root.setAttribute("aria-hidden", touchLikely ? "false" : "true");
   }
