@@ -12,6 +12,7 @@ export {
 } from "./themes";
 export { generateLayout, type LayoutResult } from "./layout";
 export { populateScene } from "./content";
+export { randomSceneWebpage } from "./webpage";
 export {
   createProceduralScene,
   createFirstProcScene,

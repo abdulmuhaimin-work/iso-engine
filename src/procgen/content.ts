@@ -10,12 +10,15 @@ import { PRESETS } from "../builder/presets";
 import { Rng } from "./rng";
 import type { LayoutResult } from "./layout";
 import type { SceneTheme } from "./themes";
+import { randomSceneWebpage } from "./webpage";
 
 export interface ContentOptions {
   theme: SceneTheme;
   seed: number;
   layout: LayoutResult;
   sceneId: string;
+  /** Display name used for flavor text / random webpage. */
+  placeName: string;
   /** When true, add a fishing post on shore if water exists. */
   allowFishing?: boolean;
 }
@@ -24,14 +27,20 @@ export function populateScene(world: World, ctx: SceneContext, options: ContentO
   const rng = new Rng(Rng.mix(options.seed, 0xc0ffee));
   const { theme, layout } = options;
   const open = rng.shuffle(layout.openCells.slice());
-  const take = (): Vec2 | null => open.pop() ?? null;
+  const take = (): Vec2 | null => {
+    while (open.length) {
+      const cell = open.pop()!;
+      if (isNear(cell, layout.entrance, 4) || isNear(cell, layout.exit, 4)) continue;
+      return cell;
+    }
+    return null;
+  };
 
   // Props
   const propCount = rng.int(6, 14);
   for (let i = 0; i < propCount; i++) {
     const cell = take();
     if (!cell) break;
-    if (isNear(cell, layout.entrance, 3) || isNear(cell, layout.exit, 3)) continue;
     placeProp(world, cell, theme, rng);
   }
 
@@ -68,6 +77,19 @@ export function populateScene(world: World, ctx: SceneContext, options: ContentO
   const landmark = take();
   if (landmark) {
     addLandmark(world, landmark.x, landmark.y, theme, options.sceneId);
+  }
+
+  // One random webpage terminal per scene (seeded → unique per place).
+  const terminalCell = take();
+  if (terminalCell && ctx.webpage) {
+    addWebpageTerminal(
+      world,
+      terminalCell.x,
+      terminalCell.y,
+      theme,
+      options.seed,
+      options.placeName,
+    );
   }
 }
 
@@ -232,6 +254,35 @@ function addLandmark(world: World, x: number, y: number, theme: SceneTheme, scen
           },
         },
       });
+    },
+  };
+}
+
+function addWebpageTerminal(
+  world: World,
+  x: number,
+  y: number,
+  theme: SceneTheme,
+  seed: number,
+  placeName: string,
+): void {
+  const page = randomSceneWebpage(seed, theme, placeName);
+  const labels = ["Signal kiosk", "Relay terminal", "Archive booth", "Public board", "Net shrine"];
+  const rng = new Rng(Rng.mix(seed, 0x51_6e_a1));
+  const label = rng.pick(labels);
+  const e = world.add(
+    new Entity(
+      { x: x + 0.5, y: y + 0.5 },
+      { kind: "block", color: "#2a3344", width: 20, height: 30 },
+    ),
+  );
+  e.interactable = {
+    prompt: "Browse",
+    name: label,
+    radius: 1.5,
+    onInteract: ({ webpage, flags }) => {
+      flags.set("proc_webpage", page.title);
+      webpage?.open(page);
     },
   };
 }
