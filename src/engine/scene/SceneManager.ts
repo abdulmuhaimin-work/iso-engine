@@ -99,6 +99,11 @@ export class SceneManager {
     for (const def of defs) this.register(def);
   }
 
+  /** True when a scene id is already registered (including procedural ones). */
+  has(sceneId: string): boolean {
+    return this.defs.has(sceneId);
+  }
+
   /** Enter a scene immediately (no fade). Use once at boot. */
   enter(sceneId: string, spawn = "default"): void {
     this.applyScene(sceneId, spawn);

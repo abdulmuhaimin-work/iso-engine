@@ -223,11 +223,29 @@ export function createIslandScene(): SceneDefinition {
         ),
       );
 
+      // Endless exploration gate on west edge of the plaza
+      const explore = world.add(
+        new Entity(
+          { x: 17.5, y: 21.5 },
+          { kind: "block", color: "#3d7a72", width: 20, height: 30 },
+        ),
+      );
+      explore.interactable = {
+        prompt: "Explore",
+        name: "Wilderness gate",
+        radius: 1.55,
+        onInteract: ({ flags }) => {
+          flags.set("proc_started", true);
+          ctx.manager.change("proc-1", { spawn: "default" });
+        },
+      };
+
       return {
         world,
         spawns: {
           default: { x: 21.5, y: 22.5 },
           from_cave: { x: 43.5, y: 11.5 },
+          from_proc: { x: 18.5, y: 22.5 },
         },
         portals: [
           {
