@@ -65,6 +65,7 @@ export function createProceduralScene(options: {
         seed: options.seed,
         layout,
         sceneId: options.id,
+        placeName: name,
       });
 
       // Exit marker (north) — advances to a new procedural scene.
