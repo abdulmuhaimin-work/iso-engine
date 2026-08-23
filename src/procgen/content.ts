@@ -27,14 +27,20 @@ export function populateScene(world: World, ctx: SceneContext, options: ContentO
   const rng = new Rng(Rng.mix(options.seed, 0xc0ffee));
   const { theme, layout } = options;
   const open = rng.shuffle(layout.openCells.slice());
-  const take = (): Vec2 | null => open.pop() ?? null;
+  const take = (): Vec2 | null => {
+    while (open.length) {
+      const cell = open.pop()!;
+      if (isNear(cell, layout.entrance, 4) || isNear(cell, layout.exit, 4)) continue;
+      return cell;
+    }
+    return null;
+  };
 
   // Props
   const propCount = rng.int(6, 14);
   for (let i = 0; i < propCount; i++) {
     const cell = take();
     if (!cell) break;
-    if (isNear(cell, layout.entrance, 3) || isNear(cell, layout.exit, 3)) continue;
     placeProp(world, cell, theme, rng);
   }
 
