@@ -1,26 +1,26 @@
 import type { MiniGame, MiniGameContext } from "../engine/minigame/MiniGame";
 import { clamp } from "../engine/math/Vec2";
 
-type Phase = "ready" | "power" | "wait" | "strike" | "fight" | "result";
+type Phase = "ready" | "casting" | "scored" | "missed";
 
-interface FishKind {
-  name: string;
-  rarity: "common" | "uncommon" | "rare";
-  color: string;
-  weight: number;
-  pull: number;
+const CAST_MIN = 0.08;
+const CAST_MAX = 0.98;
+const SPEED_BASE = 0.82;
+const SPEED_STEP = 0.14;
+const SPEED_CAP = 2.2;
+
+interface Point {
+  x: number;
+  y: number;
 }
 
-const FISH: FishKind[] = [
-  { name: "Pixel Perch", rarity: "common", color: "#d4a05a", weight: 40, pull: 0.55 },
-  { name: "Harbor Minnow", rarity: "common", color: "#9aa8b5", weight: 32, pull: 0.45 },
-  { name: "Resume Salmon", rarity: "uncommon", color: "#e07a6a", weight: 18, pull: 0.75 },
-  { name: "Debug Bass", rarity: "uncommon", color: "#6aa84f", weight: 14, pull: 0.8 },
-  { name: "Golden Ide", rarity: "rare", color: "#f0c14a", weight: 6, pull: 1.05 },
-];
-
 /**
- * Side-view fishing: cast power → wait for a bite → strike → keep tension in the green.
+ * Arcade casting game:
+ * - fish appears at random 2D water position
+ * - hold Space / mouse to control cast power
+ * - release to throw hook to landing position
+ * - score on close hit; miss ends run
+ * - cast speed ramps up with score; high score persists
  */
 export function createFishingGame(): MiniGame {
   return new FishingGame();
@@ -30,272 +30,261 @@ class FishingGame implements MiniGame {
   readonly id = "fishing";
   readonly name = "Fishing";
 
-  private phase: Phase = "ready";
-  private time = 0;
-  private power = 0;
-  private powerDir = 1;
-  private waitFor = 0;
-  private bobberX = 0;
-  private bobberY = 0;
-  private strikeWindow = 0;
-  private tension = 0.5;
-  private tensionVel = 0;
-  private inZone = 0;
-  private catchNeed = 2.3;
-  private fish: FishKind | null = null;
-  private won = false;
-  private message = "";
-  private splash = 0;
   private flags: MiniGameContext["flags"] | null = null;
+  private phase: Phase = "ready";
+  private score = 0;
+  private highScore = 0;
+  private power = CAST_MIN;
+  private powerDir = 1;
+  private castSpeed = SPEED_BASE;
+  private fish: Point = { x: 0, y: 0 };
+  private fishRadius = 24;
+  private hook: Point = { x: 0, y: 0 };
+  private splash = 0;
+  private phaseTimer = 0;
+  private message = "Hold Space to charge, release to cast";
+  private waterRect = { x: 220, y: 180, w: 720, h: 360 };
+  private rodPoint: Point = { x: 170, y: 410 };
+  private prevHeld = false;
+  private lastThrowDistance = 0;
+  private landingSpread = 34;
 
   start(ctx: MiniGameContext): void {
     this.flags = ctx.flags;
-    this.resetReady();
+    this.highScore = Number(this.flags?.get("fishing_high_score") ?? 0);
+    this.resetRun(ctx);
   }
 
   end(): void {}
 
   update(ctx: MiniGameContext): void {
     const dt = ctx.dt;
-    this.time += dt;
-    if (this.splash > 0) this.splash = Math.max(0, this.splash - dt);
-
     if (ctx.input.justPressed("Escape")) {
       ctx.quit();
       return;
     }
 
-    const action = pressed(ctx);
+    this.phaseTimer += dt;
+    if (this.splash > 0) this.splash = Math.max(0, this.splash - dt * 1.2);
 
-    switch (this.phase) {
-      case "ready":
-        if (action) {
-          this.phase = "power";
-          this.power = 0.15;
-          this.powerDir = 1;
-        }
-        break;
-      case "power":
-        this.power += this.powerDir * dt * 0.85;
-        if (this.power >= 1) {
-          this.power = 1;
-          this.powerDir = -1;
-        } else if (this.power <= 0) {
-          this.power = 0;
-          this.powerDir = 1;
-        }
-        if (action) this.cast(ctx);
-        break;
-      case "wait":
-        this.bobberY += Math.sin(this.time * 3.2) * 6 * dt;
-        this.waitFor -= dt;
-        if (this.waitFor <= 0) {
-          this.phase = "strike";
-          this.strikeWindow = 0.78;
-          this.splash = 0.45;
-        }
-        break;
-      case "strike":
-        this.strikeWindow -= dt;
-        if (action) {
-          this.beginFight();
-        } else if (this.strikeWindow <= 0) {
-          this.finish(false, "The fish got away.");
-        }
-        break;
-      case "fight":
-        this.stepFight(dt, action);
-        break;
-      case "result":
-        if (action) this.resetReady();
-        break;
+    if (this.phase === "ready" || this.phase === "casting") {
+      this.updateCasting(ctx, dt);
+      return;
+    }
+    if (this.phase === "scored" && this.phaseTimer > 0.65) {
+      this.nextFish(ctx);
+      return;
+    }
+    if (this.phase === "missed" && pressed(ctx)) {
+      this.resetRun(ctx);
     }
   }
 
   render(ctx: MiniGameContext): void {
     const { ctx: g, width: w, height: h } = ctx;
-    const horizon = h * 0.42;
-    const pierTop = h * 0.62;
+    this.layout(w, h);
+    drawSky(g, w, h, this.waterRect.y);
+    drawHills(g, w, this.waterRect.y);
+    drawWater(g, this.waterRect, this.splash, this.hook, this.phase === "scored");
+    drawPier(g, this.rodPoint, this.waterRect, w, h);
+    drawRod(g, this.rodPoint, this.hook, this.phase === "casting" || this.phase === "ready");
 
-    drawSky(g, w, h, horizon);
-    drawHills(g, w, horizon);
-    drawWater(g, w, h, horizon, this.time, this.splash, this.bobberX, this.bobberY);
-    drawPier(g, w, pierTop, h);
-    drawAngler(g, w * 0.18, pierTop);
-
-    if (this.phase !== "ready" && this.phase !== "power" && this.phase !== "result") {
-      this.drawLine(g, w * 0.22, pierTop - 28);
-    }
-    if (this.phase === "wait" || this.phase === "strike" || this.phase === "fight") {
-      drawBobber(g, this.bobberX, this.bobberY, this.phase === "strike", this.time);
-    }
+    drawFish(g, this.fish, this.fishRadius, this.phase !== "missed");
+    if (this.phase !== "ready") drawHook(g, this.hook);
 
     this.drawHud(g, w, h);
   }
 
-  private resetReady(): void {
-    this.phase = "ready";
-    this.fish = null;
-    this.won = false;
-    this.message = "";
-    this.power = 0;
-    this.tension = 0.5;
-    this.inZone = 0;
+  private updateCasting(ctx: MiniGameContext, dt: number): void {
+    const held = isHeld(ctx);
+    const justPressed = held && !this.prevHeld;
+    const justReleased = !held && this.prevHeld;
+
+    if (justPressed && this.phase === "ready") {
+      this.phase = "casting";
+      this.message = "Release to cast";
+      this.phaseTimer = 0;
+    }
+
+    if (this.phase === "casting" && held) {
+      this.power += this.powerDir * this.castSpeed * dt;
+      if (this.power >= CAST_MAX) {
+        this.power = CAST_MAX;
+        this.powerDir = -1;
+      } else if (this.power <= CAST_MIN) {
+        this.power = CAST_MIN;
+        this.powerDir = 1;
+      }
+    }
+
+    if (this.phase === "casting" && justReleased) {
+      this.resolveCast();
+    }
+
+    this.prevHeld = held;
   }
 
-  private cast(ctx: MiniGameContext): void {
-    const w = ctx.width;
-    const h = ctx.height;
-    const horizon = h * 0.42;
-    const t = 0.35 + this.power * 0.5;
-    this.bobberX = w * (0.42 + t * 0.38);
-    this.bobberY = horizon + 28 + (1 - this.power) * 36;
-    this.waitFor = 1.1 + Math.random() * 2.4;
-    this.phase = "wait";
-    this.splash = 0.25;
-  }
-
-  private beginFight(): void {
-    this.fish = pickFish(this.power);
-    this.phase = "fight";
-    this.tension = 0.5;
-    this.tensionVel = 0;
-    this.inZone = 0;
-    this.catchNeed = this.fish.rarity === "rare" ? 2.8 : this.fish.rarity === "uncommon" ? 2.4 : 2.0;
-  }
-
-  private stepFight(dt: number, action: boolean): void {
-    const fish = this.fish!;
-    const yank = (Math.sin(this.time * fish.pull * 3.2) + Math.sin(this.time * 1.7)) * 0.5;
-    this.tensionVel += yank * fish.pull * dt * 1.4;
-    if (action) this.tensionVel -= 1.65;
-    this.tensionVel *= Math.pow(0.18, dt);
-    this.tension = clamp(this.tension + this.tensionVel * dt, 0, 1);
-
-    const inGreen = this.tension > 0.34 && this.tension < 0.66;
-    if (inGreen) this.inZone += dt;
-    else this.inZone = Math.max(0, this.inZone - dt * 0.35);
-
-    if (this.tension <= 0.02 || this.tension >= 0.98) {
-      this.finish(false, this.tension >= 0.98 ? "The line snapped." : "It slipped the hook.");
+  private resolveCast(): void {
+    this.hook = this.powerToLanding(this.power);
+    this.splash = 1;
+    this.lastThrowDistance = distance(this.hook, this.fish);
+    const hitRadius = this.currentHitRadius();
+    if (this.lastThrowDistance <= hitRadius) {
+      this.score += 1;
+      this.flags?.set("fish_count", this.score);
+      this.flags?.set("fish_caught", true);
+      this.flags?.set("last_fish", `Catch x${this.score}`);
+      if (this.score > this.highScore) {
+        this.highScore = this.score;
+        this.flags?.set("fishing_high_score", this.highScore);
+      }
+      this.phase = "scored";
+      this.phaseTimer = 0;
+      this.message = "Hit! New fish incoming…";
+      this.castSpeed = Math.min(SPEED_CAP, SPEED_BASE + this.score * SPEED_STEP);
+      this.landingSpread = Math.max(12, 34 - this.score * 1.6);
       return;
     }
-    if (this.inZone >= this.catchNeed) {
-      this.finish(true, `Caught a ${fish.name}!`);
+
+    this.phase = "missed";
+    this.phaseTimer = 0;
+    this.message = "Miss! Press Space to restart or Esc to exit.";
+    this.flags?.set("last_fish", `Miss at ${this.score}`);
+  }
+
+  private nextFish(ctx: MiniGameContext): void {
+    this.phase = "ready";
+    this.phaseTimer = 0;
+    this.power = CAST_MIN;
+    this.powerDir = 1;
+    this.fish = this.randomFish();
+    this.message = "Hold Space to charge, release to cast";
+    this.prevHeld = isHeld(ctx);
+  }
+
+  private resetRun(ctx: MiniGameContext): void {
+    this.score = 0;
+    this.castSpeed = SPEED_BASE;
+    this.phase = "ready";
+    this.phaseTimer = 0;
+    this.power = CAST_MIN;
+    this.powerDir = 1;
+    this.hook = this.powerToLanding(this.power);
+    this.fish = this.randomFish();
+    this.splash = 0;
+    this.message = "Hold Space to charge, release to cast";
+    this.prevHeld = isHeld(ctx);
+    this.lastThrowDistance = 0;
+    this.landingSpread = 34;
+    this.flags?.set("fish_count", 0);
+    this.flags?.set("last_fish", "Fishing");
+  }
+
+  private layout(width: number, height: number): void {
+    const margin = 24;
+    this.waterRect = {
+      x: Math.max(180, width * 0.24),
+      y: Math.max(120, height * 0.26),
+      w: Math.max(420, width * 0.7 - margin),
+      h: Math.max(220, height * 0.55),
+    };
+    this.rodPoint = {
+      x: this.waterRect.x - 62,
+      y: this.waterRect.y + this.waterRect.h * 0.72,
+    };
+    if (this.phase === "ready" || this.phase === "casting") {
+      this.hook = this.powerToLanding(this.power);
     }
   }
 
-  private finish(won: boolean, message: string): void {
-    this.won = won;
-    this.message = message;
-    this.phase = "result";
-    if (won && this.fish && this.flags) {
-      const n = Number(this.flags.get("fish_count") ?? 0) + 1;
-      this.flags.set("fish_count", n);
-      this.flags.set("fish_caught", true);
-      this.flags.set("last_fish", this.fish.name);
-    }
+  private randomFish(): Point {
+    const p = CAST_MIN + Math.random() * (CAST_MAX - CAST_MIN);
+    const base = this.powerToLanding(p);
+    const offset = (Math.random() * 2 - 1) * this.landingSpread;
+    const normal = this.castNormal(p);
+    const m = 30;
+    return {
+      x: clamp(base.x + normal.x * offset, this.waterRect.x + m, this.waterRect.x + this.waterRect.w - m),
+      y: clamp(base.y + normal.y * offset, this.waterRect.y + m, this.waterRect.y + this.waterRect.h - m),
+    };
   }
 
-  private drawLine(g: CanvasRenderingContext2D, ax: number, ay: number): void {
-    g.strokeStyle = "rgba(230, 236, 240, 0.55)";
-    g.lineWidth = 1.25;
-    g.beginPath();
-    g.moveTo(ax, ay);
-    g.quadraticCurveTo((ax + this.bobberX) * 0.5, ay + 40, this.bobberX, this.bobberY);
-    g.stroke();
+  private powerToLanding(power: number): Point {
+    const p = clamp(power, CAST_MIN, CAST_MAX);
+    const x = this.waterRect.x + this.waterRect.w * p;
+    const yCurve = 0.15 + Math.abs(p - 0.5) * 1.25;
+    const y = this.waterRect.y + this.waterRect.h * clamp(yCurve, 0.08, 0.95);
+    return { x, y };
   }
 
-  private drawHud(g: CanvasRenderingContext2D, w: number, h: number): void {
-    g.fillStyle = "rgba(6, 10, 16, 0.55)";
-    g.fillRect(0, 0, w, 64);
+  private castNormal(power: number): Point {
+    const eps = 0.01;
+    const a = this.powerToLanding(clamp(power - eps, CAST_MIN, CAST_MAX));
+    const b = this.powerToLanding(clamp(power + eps, CAST_MIN, CAST_MAX));
+    const tx = b.x - a.x;
+    const ty = b.y - a.y;
+    const len = Math.hypot(tx, ty) || 1;
+    // perpendicular to trajectory
+    return { x: -ty / len, y: tx / len };
+  }
+
+  private currentHitRadius(): number {
+    // generous early, tighter later
+    return Math.max(22, 44 - this.score * 1.4);
+  }
+
+  private drawHud(g: CanvasRenderingContext2D, width: number, height: number): void {
+    g.fillStyle = "rgba(6, 10, 16, 0.62)";
+    g.fillRect(0, 0, width, 74);
     g.fillStyle = "#e8eef4";
     g.font = "650 18px system-ui, sans-serif";
-    g.fillText("Fishing hole", 24, 32);
+    g.fillText("Fishing range", 20, 29);
     g.font = "13px system-ui, sans-serif";
-    g.fillStyle = "rgba(232,238,244,0.7)";
-    g.fillText("Esc leaves · Space / click acts", 24, 50);
+    g.fillStyle = "rgba(232,238,244,0.78)";
+    g.fillText("Hold Space / mouse, release to cast · Esc exits", 20, 49);
 
-    const hint = this.hint();
-    g.font = "16px system-ui, sans-serif";
+    g.font = "700 16px system-ui, sans-serif";
     g.fillStyle = "#ffe08a";
-    centerText(g, hint, w / 2, h - 36);
+    g.fillText(`Score ${this.score}`, width - 260, 30);
+    g.fillStyle = "#7ec8e3";
+    g.fillText(`High ${this.highScore}`, width - 150, 30);
+    g.fillStyle = "rgba(232,238,244,0.8)";
+    g.font = "12px system-ui, sans-serif";
+    g.fillText(`Bar speed ${this.castSpeed.toFixed(2)}x`, width - 260, 50);
 
-    if (this.phase === "power") {
-      drawMeter(g, w / 2 - 140, h - 78, 280, 14, this.power, "#7ec8e3", "Cast power");
-    }
-    if (this.phase === "strike") {
-      g.fillStyle = "rgba(255, 196, 80, 0.95)";
-      g.font = "700 42px system-ui, sans-serif";
-      centerText(g, "NOW!", w / 2, h * 0.36);
-    }
-    if (this.phase === "fight" && this.fish) {
-      drawMeter(g, w / 2 - 160, h - 92, 320, 18, this.tension, this.fish.color, "Tension");
-      g.fillStyle = "rgba(110, 180, 120, 0.35)";
-      g.fillRect(w / 2 - 160 + 320 * 0.34, h - 92, 320 * 0.32, 18);
-      g.strokeStyle = "rgba(140, 210, 150, 0.9)";
-      g.strokeRect(w / 2 - 160 + 320 * 0.34, h - 92, 320 * 0.32, 18);
-      const p = clamp(this.inZone / this.catchNeed, 0, 1);
-      drawMeter(g, w / 2 - 160, h - 64, 320, 8, p, "#ffe08a", "");
-    }
-    if (this.phase === "result") {
-      g.fillStyle = "rgba(8, 12, 18, 0.62)";
-      roundRect(g, w / 2 - 200, h * 0.3, 400, 150, 12);
+    drawMeter(g, width / 2 - 180, height - 68, 360, 16, this.power, "#7ec8e3", "Cast power");
+    g.fillStyle = "rgba(232,238,244,0.7)";
+    g.font = "12px system-ui, sans-serif";
+    g.fillText(`Hit radius ${Math.round(this.currentHitRadius())} px`, width / 2 + 194, height - 55);
+    g.fillStyle = this.phase === "missed" ? "#ffb1a2" : "#ffe08a";
+    g.font = "16px system-ui, sans-serif";
+    centerText(g, this.message, width / 2, height - 28);
+
+    if (this.phase === "missed") {
+      g.fillStyle = "rgba(8, 12, 18, 0.7)";
+      roundRect(g, width / 2 - 220, height * 0.35, 440, 120, 12);
       g.fill();
-      g.fillStyle = this.won ? "#b6e3a8" : "#e0a0a0";
-      g.font = "650 22px system-ui, sans-serif";
-      centerText(g, this.message, w / 2, h * 0.3 + 58);
-      if (this.won && this.fish) {
-        g.fillStyle = this.fish.color;
-        g.font = "14px system-ui, sans-serif";
-        centerText(g, this.fish.rarity, w / 2, h * 0.3 + 84);
-      }
-      g.fillStyle = "rgba(232,238,244,0.75)";
+      g.fillStyle = "#ffb1a2";
+      g.font = "700 24px system-ui, sans-serif";
+      centerText(g, "Run over", width / 2, height * 0.35 + 42);
+      g.fillStyle = "#e8eef4";
       g.font = "14px system-ui, sans-serif";
-      centerText(g, "Space to fish again", w / 2, h * 0.3 + 118);
+      centerText(
+        g,
+        `Final score ${this.score} · High score ${this.highScore}`,
+        width / 2,
+        height * 0.35 + 74,
+      );
+      if (this.lastThrowDistance > 0) {
+        centerText(
+          g,
+          `Last miss by ${Math.round(this.lastThrowDistance)} px`,
+          width / 2,
+          height * 0.35 + 96,
+        );
+      }
     }
   }
-
-  private hint(): string {
-    switch (this.phase) {
-      case "ready":
-        return "Space to start a cast";
-      case "power":
-        return "Space when the bar looks right";
-      case "wait":
-        return "Waiting for a bite…";
-      case "strike":
-        return "Space to set the hook!";
-      case "fight":
-        return "Tap Space to keep the marker in the green";
-      case "result":
-        return this.won ? "Nice catch" : "Try another cast";
-    }
-  }
-}
-
-function pressed(ctx: MiniGameContext): boolean {
-  return (
-    ctx.input.justPressed("Space") ||
-    ctx.input.justPressed("Enter") ||
-    ctx.pointer.pressed
-  );
-}
-
-function pickFish(power: number): FishKind {
-  const rareBoost = power > 0.72 ? 1.8 : power > 0.45 ? 1.2 : 0.8;
-  const weighted = FISH.map((f) => ({
-    f,
-    w: f.weight * (f.rarity === "rare" ? rareBoost : f.rarity === "uncommon" ? 1 + (rareBoost - 1) * 0.4 : 1),
-  }));
-  let total = 0;
-  for (const row of weighted) total += row.w;
-  let roll = Math.random() * total;
-  for (const row of weighted) {
-    roll -= row.w;
-    if (roll <= 0) return row.f;
-  }
-  return FISH[0]!;
 }
 
 function drawSky(
@@ -330,52 +319,98 @@ function drawHills(g: CanvasRenderingContext2D, w: number, horizon: number): voi
 
 function drawWater(
   g: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  horizon: number,
-  time: number,
+  waterRect: { x: number; y: number; w: number; h: number },
   splash: number,
-  bx: number,
-  by: number,
+  hook: Point,
+  hit: boolean,
 ): void {
-  const water = g.createLinearGradient(0, horizon, 0, h);
+  const water = g.createLinearGradient(0, waterRect.y, 0, waterRect.y + waterRect.h);
   water.addColorStop(0, "#3d7a96");
   water.addColorStop(0.4, "#2a5f78");
   water.addColorStop(1, "#163848");
+  roundRect(g, waterRect.x, waterRect.y, waterRect.w, waterRect.h, 14);
   g.fillStyle = water;
-  g.fillRect(0, horizon, w, h - horizon);
+  g.fill();
+  g.strokeStyle = "rgba(200,235,245,0.32)";
+  g.lineWidth = 2;
+  g.stroke();
 
   g.strokeStyle = "rgba(180, 220, 230, 0.22)";
   g.lineWidth = 2;
-  for (let i = 0; i < 7; i++) {
-    const y = horizon + 18 + i * 28;
+  for (let i = 0; i < 9; i++) {
+    const y = waterRect.y + 18 + i * ((waterRect.h - 36) / 8);
     g.beginPath();
-    for (let x = 0; x <= w; x += 10) {
-      const yy = y + Math.sin(x * 0.02 + time * 1.4 + i) * 4;
-      if (x === 0) g.moveTo(x, yy);
+    for (let x = waterRect.x; x <= waterRect.x + waterRect.w; x += 10) {
+      const yy = y + Math.sin(x * 0.022 + performance.now() * 0.0015 + i) * 3;
+      if (x === waterRect.x) g.moveTo(x, yy);
       else g.lineTo(x, yy);
     }
     g.stroke();
   }
 
   if (splash > 0) {
-    g.strokeStyle = `rgba(230, 245, 250, ${splash})`;
+    g.strokeStyle = hit ? `rgba(170, 255, 190, ${splash})` : `rgba(230, 245, 250, ${splash})`;
     g.beginPath();
-    g.ellipse(bx, by + 6, 18 + (0.45 - splash) * 40, 7, 0, 0, Math.PI * 2);
+    g.ellipse(hook.x, hook.y + 4, 16 + (1 - splash) * 24, 7, 0, 0, Math.PI * 2);
     g.stroke();
   }
 }
 
-function drawPier(g: CanvasRenderingContext2D, w: number, top: number, h: number): void {
+function drawPier(
+  g: CanvasRenderingContext2D,
+  rodPoint: Point,
+  waterRect: { x: number; y: number; w: number; h: number },
+  width: number,
+  height: number,
+): void {
+  const top = waterRect.y + waterRect.h * 0.58;
   g.fillStyle = "#5a4332";
-  g.fillRect(0, top, w * 0.34, h - top);
+  g.fillRect(0, top, Math.max(150, rodPoint.x + 30), height - top);
   g.fillStyle = "#6e5240";
   for (let i = 0; i < 8; i++) {
     g.fillRect(12 + i * 28, top - 6, 22, 10);
   }
   g.fillStyle = "#3d2e24";
-  g.fillRect(w * 0.08, top - 70, 10, 70);
-  g.fillRect(w * 0.22, top - 54, 8, 54);
+  g.fillRect(width * 0.08, top - 70, 10, 70);
+  g.fillRect(width * 0.22, top - 54, 8, 54);
+}
+
+function drawRod(
+  g: CanvasRenderingContext2D,
+  rodPoint: Point,
+  hook: Point,
+  showLine: boolean,
+): void {
+  drawAngler(g, rodPoint.x - 22, rodPoint.y + 40);
+  g.strokeStyle = "#2a3340";
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(rodPoint.x - 8, rodPoint.y + 12);
+  g.lineTo(rodPoint.x + 36, rodPoint.y - 12);
+  g.stroke();
+  if (!showLine) return;
+  g.strokeStyle = "rgba(230, 236, 240, 0.55)";
+  g.lineWidth = 1.25;
+  g.beginPath();
+  g.moveTo(rodPoint.x + 36, rodPoint.y - 12);
+  g.quadraticCurveTo((rodPoint.x + hook.x) * 0.5, rodPoint.y - 34, hook.x, hook.y);
+  g.stroke();
+
+  // Faint aim lane preview so reachable cast region is visible.
+  g.strokeStyle = "rgba(190, 220, 235, 0.15)";
+  g.lineWidth = 1;
+  g.beginPath();
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    const x = hook.x * t + (rodPoint.x + 36) * (1 - t);
+    const y =
+      (1 - t) * (1 - t) * (rodPoint.y - 12)
+      + 2 * (1 - t) * t * (rodPoint.y - 34)
+      + t * t * hook.y;
+    if (i === 0) g.moveTo(x, y);
+    else g.lineTo(x, y);
+  }
+  g.stroke();
 }
 
 function drawAngler(g: CanvasRenderingContext2D, x: number, footY: number): void {
@@ -390,30 +425,44 @@ function drawAngler(g: CanvasRenderingContext2D, x: number, footY: number): void
   g.beginPath();
   g.arc(x, footY - 44, 7, 0, Math.PI * 2);
   g.fill();
-  g.strokeStyle = "#2a3340";
-  g.lineWidth = 3;
-  g.beginPath();
-  g.moveTo(x + 8, footY - 30);
-  g.lineTo(x + 36, footY - 62);
-  g.stroke();
 }
 
-function drawBobber(
-  g: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  striking: boolean,
-  time: number,
-): void {
-  const dip = striking ? 10 : Math.sin(time * 3.2) * 2;
+function drawFish(g: CanvasRenderingContext2D, fish: Point, radius: number, alive: boolean): void {
+  const alpha = alive ? 1 : 0.35;
+  g.save();
+  g.globalAlpha = alpha;
+  g.fillStyle = "#f0c14a";
+  g.beginPath();
+  g.ellipse(fish.x, fish.y, radius, radius * 0.62, 0, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();
+  g.moveTo(fish.x + radius * 0.9, fish.y);
+  g.lineTo(fish.x + radius * 1.45, fish.y - radius * 0.45);
+  g.lineTo(fish.x + radius * 1.45, fish.y + radius * 0.45);
+  g.closePath();
+  g.fillStyle = "#dc9d30";
+  g.fill();
+  g.fillStyle = "#10253a";
+  g.beginPath();
+  g.arc(fish.x - radius * 0.35, fish.y - radius * 0.1, 2.2, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
+function drawHook(g: CanvasRenderingContext2D, hook: Point): void {
   g.fillStyle = "#c44536";
   g.beginPath();
-  g.arc(x, y + dip, 7, Math.PI, 0);
+  g.arc(hook.x, hook.y, 6, Math.PI, 0);
   g.fill();
   g.fillStyle = "#f4f0ea";
   g.beginPath();
-  g.arc(x, y + dip, 7, 0, Math.PI);
+  g.arc(hook.x, hook.y, 6, 0, Math.PI);
   g.fill();
+  g.strokeStyle = "rgba(250, 250, 250, 0.88)";
+  g.lineWidth = 1.2;
+  g.beginPath();
+  g.arc(hook.x + 4.5, hook.y + 4.5, 3.8, -Math.PI / 3, Math.PI * 0.92);
+  g.stroke();
 }
 
 function drawMeter(
@@ -443,6 +492,22 @@ function centerText(g: CanvasRenderingContext2D, text: string, x: number, y: num
   g.textAlign = "center";
   g.fillText(text, x, y);
   g.textAlign = "left";
+}
+
+function distance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function isHeld(ctx: MiniGameContext): boolean {
+  return ctx.input.isDown("Space") || ctx.pointer.down;
+}
+
+function pressed(ctx: MiniGameContext): boolean {
+  return (
+    ctx.input.justPressed("Space")
+    || ctx.input.justPressed("Enter")
+    || ctx.pointer.pressed
+  );
 }
 
 function roundRect(
