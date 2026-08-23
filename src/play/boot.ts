@@ -24,7 +24,7 @@ export interface PlayableOptions {
   zoom?: number;
   clearColor?: string;
   atmosphere?: (sceneId: string | null) => string;
-  hudExtra?: (flags: Flags) => string;
+  hudExtra?: (flags: Flags, sceneId: string | null) => string;
 }
 
 /**
@@ -237,7 +237,7 @@ export function bootPlayable(options: PlayableOptions): void {
     const tile = pickTile(camera, game.input.mouse);
     const def = world.map.getDef(tile.x, tile.y);
     const remaining = mover.tiles.length;
-    const extra = options.hudExtra?.(flags) ?? "";
+    const extra = options.hudExtra?.(flags, scenes.sceneId) ?? "";
     const status = scenes.transitioning
       ? "traveling"
       : minigames?.active
