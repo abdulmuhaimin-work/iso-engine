@@ -23,8 +23,10 @@ export class Input {
   private readonly onPointerMove: (e: PointerEvent) => void;
   private readonly onPointerDown: (e: PointerEvent) => void;
   private readonly onPointerUp: (e: PointerEvent) => void;
+  private readonly onPointerCancel: (e: PointerEvent) => void;
   private readonly onWheel: (e: WheelEvent) => void;
   private readonly onContextMenu: (e: Event) => void;
+  private activePointerId: number | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -38,20 +40,32 @@ export class Input {
       this.keysReleased.add(e.code);
     };
     this.onPointerMove = (e) => {
+      if (this.activePointerId !== null && e.pointerId !== this.activePointerId) return;
       this.updateMouse(e);
     };
     this.onPointerDown = (e) => {
-      if (e.button !== 0) return;
+      // Touch / pen often report button 0; ignore non-primary mouse buttons.
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (this.activePointerId !== null) return;
       this.updateMouse(e);
       this.mouseDown = true;
       this.mousePressed = true;
+      this.activePointerId = e.pointerId;
       this.canvas.setPointerCapture(e.pointerId);
     };
     this.onPointerUp = (e) => {
-      if (e.button !== 0) return;
+      if (this.activePointerId !== null && e.pointerId !== this.activePointerId) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
       this.updateMouse(e);
       this.mouseDown = false;
       this.mouseReleased = true;
+      this.activePointerId = null;
+    };
+    this.onPointerCancel = (e) => {
+      if (this.activePointerId !== null && e.pointerId !== this.activePointerId) return;
+      this.mouseDown = false;
+      this.mouseReleased = true;
+      this.activePointerId = null;
     };
     this.onWheel = (e) => {
       e.preventDefault();
@@ -64,6 +78,8 @@ export class Input {
     canvas.addEventListener("pointermove", this.onPointerMove);
     canvas.addEventListener("pointerdown", this.onPointerDown);
     canvas.addEventListener("pointerup", this.onPointerUp);
+    canvas.addEventListener("pointercancel", this.onPointerCancel);
+    canvas.addEventListener("lostpointercapture", this.onPointerCancel);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
     canvas.addEventListener("contextmenu", this.onContextMenu);
   }
@@ -116,6 +132,8 @@ export class Input {
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
+    this.canvas.removeEventListener("pointercancel", this.onPointerCancel);
+    this.canvas.removeEventListener("lostpointercapture", this.onPointerCancel);
     this.canvas.removeEventListener("wheel", this.onWheel);
     this.canvas.removeEventListener("contextmenu", this.onContextMenu);
   }

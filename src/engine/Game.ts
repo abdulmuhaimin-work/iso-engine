@@ -58,13 +58,16 @@ export class Game {
 
     this.onResize = () => this.fitToWindow();
     window.addEventListener("resize", this.onResize);
+    window.visualViewport?.addEventListener("resize", this.onResize);
+    window.visualViewport?.addEventListener("scroll", this.onResize);
     this.fitToWindow();
   }
 
   fitToWindow(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const vv = window.visualViewport;
+    const w = Math.floor(vv?.width ?? window.innerWidth);
+    const h = Math.floor(vv?.height ?? window.innerHeight);
     this.canvas.width = Math.floor(w * dpr);
     this.canvas.height = Math.floor(h * dpr);
     this.canvas.style.width = `${w}px`;
@@ -112,5 +115,7 @@ export class Game {
     this.stop();
     this.input.destroy();
     window.removeEventListener("resize", this.onResize);
+    window.visualViewport?.removeEventListener("resize", this.onResize);
+    window.visualViewport?.removeEventListener("scroll", this.onResize);
   }
 }

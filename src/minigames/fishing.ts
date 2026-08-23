@@ -42,7 +42,7 @@ class FishingGame implements MiniGame {
   private hook: Point = { x: 0, y: 0 };
   private splash = 0;
   private phaseTimer = 0;
-  private message = "Hold Space to charge, release to cast";
+  private message = "Hold to charge, release to cast";
   private waterRect = { x: 220, y: 180, w: 720, h: 360 };
   private rodPoint: Point = { x: 170, y: 410 };
   private prevHeld = false;
@@ -148,7 +148,7 @@ class FishingGame implements MiniGame {
 
     this.phase = "missed";
     this.phaseTimer = 0;
-    this.message = "Miss! Press Space to restart or Esc to exit.";
+    this.message = "Miss! Tap to restart.";
     this.flags?.set("last_fish", `Miss at ${this.score}`);
   }
 
@@ -158,7 +158,7 @@ class FishingGame implements MiniGame {
     this.power = CAST_MIN;
     this.powerDir = 1;
     this.fish = this.randomFish();
-    this.message = "Hold Space to charge, release to cast";
+    this.message = "Hold to charge, release to cast";
     this.prevHeld = isHeld(ctx);
   }
 
@@ -172,7 +172,7 @@ class FishingGame implements MiniGame {
     this.hook = this.powerToLanding(this.power);
     this.fish = this.randomFish();
     this.splash = 0;
-    this.message = "Hold Space to charge, release to cast";
+    this.message = "Hold to charge, release to cast";
     this.prevHeld = isHeld(ctx);
     this.lastThrowDistance = 0;
     this.landingSpread = 34;
@@ -241,7 +241,7 @@ class FishingGame implements MiniGame {
     g.fillText("Fishing range", 20, 29);
     g.font = "13px system-ui, sans-serif";
     g.fillStyle = "rgba(232,238,244,0.78)";
-    g.fillText("Hold Space / mouse, release to cast · Esc exits", 20, 49);
+    g.fillText("Hold to charge, release to cast · Esc / back exits", 20, 49);
 
     g.font = "700 16px system-ui, sans-serif";
     g.fillStyle = "#ffe08a";
