@@ -115,9 +115,9 @@ export function createProceduralScene(options: {
       return {
         world,
         spawns: {
-          default: { x: layout.entrance.x + 0.5, y: layout.entrance.y - 1.5 },
-          from_next: { x: layout.exit.x + 0.5, y: layout.exit.y + 1.5 },
-          entrance: { x: layout.entrance.x + 0.5, y: layout.entrance.y - 1.5 },
+          default: layout.spawnDefault,
+          from_next: layout.spawnFromNext,
+          entrance: layout.spawnDefault,
         },
         portals,
         onEnter: () => {

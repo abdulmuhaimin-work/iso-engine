@@ -6,12 +6,18 @@ export interface LayoutResult {
   map: TileMapData;
   /** Walkable open cells suitable for props / NPCs. */
   openCells: Vec2[];
-  /** Preferred entrance near map edge. */
+  /** Preferred entrance near map edge (south). */
   entrance: Vec2;
-  /** Preferred exit toward opposite side. */
+  /** Preferred exit toward opposite side (north). */
   exit: Vec2;
+  /** Safe player spawn when entering this scene. */
+  spawnDefault: Vec2;
+  /** Safe spawn when returning from a deeper scene. */
+  spawnFromNext: Vec2;
   /** Water-adjacent walkable cells. */
   shoreCells: Vec2[];
+  /** Reserved corridor cells (no blocking props). */
+  reserved: Vec2[];
 }
 
 export function generateLayout(theme: SceneTheme, seed: number, size = 28): LayoutResult {
@@ -66,38 +72,42 @@ export function generateLayout(theme: SceneTheme, seed: number, size = 28): Layo
       break;
   }
 
-  // Scatter accent overlays.
+  // Scatter accent overlays (never on the upcoming corridor band).
   for (let i = 0; i < Math.floor(cells * 0.04); i++) {
     const x = rng.int(2, width - 3);
     const y = rng.int(2, height - 3);
     if (tiles[idx(x, y)] === PT.ground && rng.chance(0.55)) setO(x, y, PT.flower);
   }
 
-  // Ensure a clear entrance / exit corridor on south and north edges.
-  const entranceX = rng.int(Math.floor(width * 0.35), Math.floor(width * 0.65));
-  const exitX = rng.int(Math.floor(width * 0.3), Math.floor(width * 0.7));
-  for (let y = height - 4; y < height; y++) {
-    set(entranceX, y, PT.path);
-    set(entranceX - 1, y, PT.path);
-    setH(entranceX, y, 0);
-    setH(entranceX - 1, y, 0);
-  }
-  for (let y = 0; y < 4; y++) {
-    set(exitX, y, PT.path);
-    set(exitX + 1, y, PT.path);
-    setH(exitX, y, 0);
-    setH(exitX + 1, y, 0);
-  }
-  // Carve a rough path between them.
-  carvePath(entranceX, height - 3, exitX, 3, set, rng);
+  // Guaranteed walkable spine: wide south pad → path → wide north pad.
+  // This runs last so water/island/caves cannot drown the spawn.
+  const entranceX = clampInt(rng.int(Math.floor(width * 0.35), Math.floor(width * 0.65)), 3, width - 4);
+  const exitX = clampInt(rng.int(Math.floor(width * 0.3), Math.floor(width * 0.7)), 3, width - 4);
+  const reserved = carveTraversalSpine(
+    tiles,
+    heights,
+    width,
+    height,
+    entranceX,
+    exitX,
+    idx,
+  );
+
+  const entrance = { x: entranceX, y: height - 3 };
+  const exit = { x: exitX, y: 2 };
+  // Tile centers firmly on the carved pads (never water / wall).
+  const spawnDefault = { x: entranceX + 0.5, y: height - 4 + 0.5 };
+  const spawnFromNext = { x: exitX + 0.5, y: 3 + 0.5 };
 
   const openCells: Vec2[] = [];
   const shoreCells: Vec2[] = [];
-  const walkableIds = new Set([PT.ground, PT.path, PT.dirt, PT.flower]);
+  const walkableIds = new Set<number>([PT.ground, PT.path, PT.dirt, PT.flower]);
+  const reservedSet = new Set(reserved.map((c) => `${c.x},${c.y}`));
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const id = tiles[idx(x, y)]!;
       if (!walkableIds.has(id)) continue;
+      if (reservedSet.has(`${x},${y}`)) continue;
       openCells.push({ x, y });
       const nearWater =
         tiles[idx(x + 1, y)] === PT.water ||
@@ -119,30 +129,112 @@ export function generateLayout(theme: SceneTheme, seed: number, size = 28): Layo
       layerHeight: 14,
     },
     openCells,
-    entrance: { x: entranceX, y: height - 3 },
-    exit: { x: exitX, y: 2 },
+    entrance,
+    exit,
+    spawnDefault,
+    spawnFromNext,
     shoreCells,
+    reserved,
   };
 }
 
-function carvePath(
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number,
-  set: (x: number, y: number, id: number) => void,
-  rng: Rng,
-): void {
-  let x = x0;
-  let y = y0;
-  for (let i = 0; i < 200; i++) {
-    set(x, y, PT.path);
-    set(x + (rng.chance(0.5) ? 1 : 0), y, PT.path);
-    if (x === x1 && y === y1) break;
-    if (rng.chance(0.55) && x !== x1) x += Math.sign(x1 - x);
-    else if (y !== y1) y += Math.sign(y1 - y);
-    else x += Math.sign(x1 - x || 1);
+/** Force a 2–3 tile wide walkable corridor from south entrance to north exit. */
+function carveTraversalSpine(
+  tiles: number[],
+  heights: number[],
+  width: number,
+  height: number,
+  entranceX: number,
+  exitX: number,
+  idx: (x: number, y: number) => number,
+): Vec2[] {
+  const reserved: Vec2[] = [];
+  const paint = (x: number, y: number) => {
+    if (x < 1 || y < 0 || x >= width - 1 || y >= height) return;
+    tiles[idx(x, y)] = PT.path;
+    heights[idx(x, y)] = 0;
+    reserved.push({ x, y });
+  };
+  const paintWide = (x: number, y: number) => {
+    paint(x - 1, y);
+    paint(x, y);
+    paint(x + 1, y);
+  };
+
+  // South entrance pad (spawn sits on y = height-4).
+  for (let y = height - 6; y < height; y++) {
+    paintWide(entranceX, y);
   }
+  // North exit pad (return spawn sits on y = 3).
+  for (let y = 0; y <= 5; y++) {
+    paintWide(exitX, y);
+  }
+
+  // Drunk-walk / manhattan carve a continuous 3-wide strip between pads.
+  let x = entranceX;
+  let y = height - 6;
+  const targetY = 5;
+  let guard = 0;
+  while ((x !== exitX || y !== targetY) && guard++ < width * height * 2) {
+    paintWide(x, y);
+    if (y > targetY) y -= 1;
+    else if (x !== exitX) x += Math.sign(exitX - x);
+    else break;
+  }
+  paintWide(exitX, targetY);
+
+  // BFS repair: if somehow disconnected, blast a straight tunnel.
+  if (!pathExists(tiles, width, height, entranceX, height - 4, exitX, 3, idx)) {
+    const x0 = Math.min(entranceX, exitX) - 1;
+    const x1 = Math.max(entranceX, exitX) + 1;
+    for (let yy = 3; yy <= height - 4; yy++) {
+      for (let xx = x0; xx <= x1; xx++) paint(xx, yy);
+    }
+  }
+
+  return reserved;
+}
+
+function pathExists(
+  tiles: number[],
+  width: number,
+  height: number,
+  sx: number,
+  sy: number,
+  gx: number,
+  gy: number,
+  idx: (x: number, y: number) => number,
+): boolean {
+  const walkable = new Set<number>([PT.ground, PT.path, PT.dirt, PT.flower]);
+  if (!walkable.has(tiles[idx(sx, sy)]!) || !walkable.has(tiles[idx(gx, gy)]!)) return false;
+  const seen = new Set<number>();
+  const q: Array<[number, number]> = [[sx, sy]];
+  seen.add(idx(sx, sy));
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const;
+  while (q.length) {
+    const [x, y] = q.pop()!;
+    if (x === gx && y === gy) return true;
+    for (const [dx, dy] of dirs) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+      const i = idx(nx, ny);
+      if (seen.has(i)) continue;
+      if (!walkable.has(tiles[i]!)) continue;
+      seen.add(i);
+      q.push([nx, ny]);
+    }
+  }
+  return false;
+}
+
+function clampInt(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v | 0));
 }
 
 function paintOrganic(
