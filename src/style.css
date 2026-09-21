@@ -476,7 +476,7 @@ body {
 .touch-controls__actions {
   position: absolute;
   right: max(1rem, env(safe-area-inset-right));
-  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  bottom: max(4rem, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
