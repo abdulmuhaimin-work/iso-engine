@@ -42,6 +42,20 @@ export const miraDialogue: DialogueScript = {
       speaker: "Mira",
       text: "Here — a pressed flower for luck. Don't ask where I got it.",
       setFlags: { has_flower: true, met_mira: true },
+      choices: [
+        {
+          text: "I'll deliver your seal to the Courier.",
+          next: "errand",
+          setFlags: { courier_errand: true },
+        },
+        { text: "Thanks. I'll wander first.", next: "bye" },
+      ],
+    },
+    errand: {
+      id: "errand",
+      speaker: "Mira",
+      text: "Find them by the west canal. Wax side up — and don't read the name aloud.",
+      setFlags: { met_mira: true },
       next: "bye",
     },
     met: {

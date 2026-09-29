@@ -79,6 +79,19 @@ export {
   type DialogueListener,
 } from "./dialogue/DialogueRunner";
 export { DialogueUI, type DialogueUIOptions } from "./dialogue/DialogueUI";
+export {
+  type CutsceneScript,
+  type CutsceneStep,
+  type CutsceneCaptionStep,
+} from "./cutscene/Cutscene";
+export { CutsceneArtRegistry, type CutsceneArtFactory } from "./cutscene/CutsceneArt";
+export {
+  CutsceneRunner,
+  type CutsceneRunnerEvent,
+  type CutsceneRunnerListener,
+} from "./cutscene/CutsceneRunner";
+export { CutsceneUI, type CutsceneUIOptions } from "./cutscene/CutsceneUI";
+export { CutsceneDirector, type CutsceneDirectorOptions } from "./cutscene/CutsceneDirector";
 export { WebPageViewer, type WebPage, type WebPageViewerOptions } from "./ui/WebPageViewer";
 export {
   TouchControls,

@@ -161,10 +161,48 @@ export function createIslandScene(): SceneDefinition {
         addBrick(world, x, y, preset, scale);
       }
 
-      addNpc(world, 12, 20, "#e8b86d", "Courier", [
-        "Parcels for the north terrace — watch the canal bridges.",
-        "If you see Mira in the plaza, tell her the flower stall restocked.",
-      ]);
+      const courier = world.add(
+        new Entity({ x: 12.5, y: 20.5 }, { kind: "sheet", scale: 0.95 }),
+      );
+      courier.animator = attachNpcAnimator("#e8b86d", 0.95);
+      courier.interactable = {
+        prompt: "Talk",
+        name: "Courier",
+        radius: 1.45,
+        onInteract: ({ dialogue, flags, cutscenes }) => {
+          if (
+            flags.get("courier_errand") &&
+            !flags.get("harbor_letter_seen") &&
+            cutscenes
+          ) {
+            cutscenes.play("harbor_letter");
+            return;
+          }
+          dialogue.start({
+            id: "courier",
+            start: "n0",
+            nodes: {
+              n0: {
+                id: "n0",
+                speaker: "Courier",
+                text: flags.get("harbor_letter_seen")
+                  ? "The seal's on its way north. You did good."
+                  : "Parcels for the north terrace — watch the canal bridges.",
+                next: flags.get("harbor_letter_seen") ? undefined : "n1",
+                choices: flags.get("harbor_letter_seen")
+                  ? [{ text: "Safe travels.", end: true }]
+                  : undefined,
+              },
+              n1: {
+                id: "n1",
+                speaker: "Courier",
+                text: "If you see Mira in the plaza, tell her the flower stall restocked.",
+                choices: [{ text: "Will do.", end: true }],
+              },
+            },
+          });
+        },
+      };
       addNpc(world, 28, 22, "#d4a0c8", "Vendor", [
         "Fresh bread, cheap maps, questionable advice.",
         "The overlook up northeast has the best sunset in the city.",
