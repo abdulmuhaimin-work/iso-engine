@@ -1,37 +1,44 @@
 import { SpriteSheet } from "../engine/render/SpriteSheet";
 import type { AnimClip } from "../engine/render/SpriteAnimator";
 
-const FRAME_W = 32;
-const FRAME_H = 48;
+/** Higher design resolution — denser crafted pixel silhouette. */
+const FRAME_W = 48;
+const FRAME_H = 72;
 const COLS = 4;
 const ROWS = 2;
 
-/** Compact RPG palette — warm skin, teal cloak, ink outlines. */
 const P = {
-  outline: "#1a1420",
+  outline: "#141018",
   skin: "#f0c9a0",
   skinShade: "#d4a078",
   skinDeep: "#b88060",
-  hair: "#2a1e28",
+  skinHi: "#f8e0c0",
+  hair: "#221820",
   hairHi: "#4a3540",
+  hairMid: "#352430",
   tunic: "#3d6b5c",
-  tunicHi: "#5a9a82",
+  tunicHi: "#5aaa88",
+  tunicMid: "#4a8a70",
   tunicShade: "#2a4a40",
   cloak: "#245068",
   cloakHi: "#3a7898",
+  cloakMid: "#2e6480",
   cloakShade: "#183848",
   belt: "#8b5a2b",
   beltHi: "#c49050",
   buckle: "#e8d080",
   pants: "#2c3448",
   pantsHi: "#4a5670",
+  pantsShade: "#1c2434",
   boot: "#3a2820",
   bootHi: "#5a4030",
-  eye: "#1a1420",
+  bootShade: "#241810",
+  eye: "#141018",
   eyeWhite: "#f5efe6",
   blush: "#e8a090",
   shadow: "#0a0810",
-  skinHi: "#f8e0c0",
+  scarf: "#c45c48",
+  scarfHi: "#e07868",
 } as const;
 
 export interface DemoHeroSheet {
@@ -40,9 +47,8 @@ export interface DemoHeroSheet {
 }
 
 /**
- * Procedural pixel hero sheet (no external art).
- * Row 0: idle + walk facing camera-ish (SE).
- * Row 1: darker north-facing poses.
+ * Procedural high-density pixel hero (48×72 frames).
+ * Row 0: SE idle/walk · Row 1: north-facing variants.
  */
 export function createDemoHeroSheet(): DemoHeroSheet {
   const canvas = document.createElement("canvas");
@@ -64,14 +70,15 @@ export function createDemoHeroSheet(): DemoHeroSheet {
     rows: ROWS,
   });
 
-  const animations: Record<string, AnimClip> = {
-    idle: { frames: [0, 1], fps: 3, loop: true },
-    walk: { frames: [0, 2, 1, 3], fps: 8, loop: true },
-    idle_n: { frames: [4, 5], fps: 3, loop: true },
-    walk_n: { frames: [4, 6, 5, 7], fps: 8, loop: true },
+  return {
+    sheet,
+    animations: {
+      idle: { frames: [0, 1], fps: 3, loop: true },
+      walk: { frames: [0, 2, 1, 3], fps: 9, loop: true },
+      idle_n: { frames: [4, 5], fps: 3, loop: true },
+      walk_n: { frames: [4, 6, 5, 7], fps: 9, loop: true },
+    },
   };
-
-  return { sheet, animations };
 }
 
 function drawHeroFrame(
@@ -82,100 +89,116 @@ function drawHeroFrame(
   north: boolean,
 ): void {
   const bob = pose % 2 === 0 ? 0 : -1;
-  const stride = pose === 2 ? 2 : pose === 3 ? -2 : 0;
-  const armSwing = pose === 2 ? 2 : pose === 3 ? -2 : 0;
+  const stride = pose === 2 ? 3 : pose === 3 ? -3 : 0;
+  const armSwing = pose === 2 ? 3 : pose === 3 ? -3 : 0;
   const breath = pose === 1 || pose === 5 ? 1 : 0;
 
-  // Soft elliptical ground shadow (pixel-stepped)
-  fillEllipsePx(ctx, ox + 16, oy + 44, 10, 3, P.shadow, 0.4);
+  fillEllipsePx(ctx, ox + 24, oy + 67, 14, 4, P.shadow, 0.42);
 
   const fy = oy + bob;
   const cloak = north ? P.cloakShade : P.cloak;
-  const cloakHi = north ? P.cloak : P.cloakHi;
+  const cloakHi = north ? P.cloakMid : P.cloakHi;
   const tunic = north ? P.tunicShade : P.tunic;
-  const tunicHi = north ? P.tunic : P.tunicHi;
+  const tunicHi = north ? P.tunicMid : P.tunicHi;
 
-  // Back cloak flap
-  px(ctx, ox + 8, fy + 18, 16, 14, cloak);
-  px(ctx, ox + 7, fy + 20, 2, 10, P.cloakShade);
-  px(ctx, ox + 23, fy + 20, 2, 10, cloakHi);
-  px(ctx, ox + 10, fy + 30, 12, 3, P.cloakShade);
+  // Cloak body + folds
+  px(ctx, ox + 12, fy + 26, 24, 22, cloak);
+  px(ctx, ox + 10, fy + 28, 3, 18, P.cloakShade);
+  px(ctx, ox + 35, fy + 28, 3, 18, cloakHi);
+  px(ctx, ox + 14, fy + 44, 20, 5, P.cloakShade);
+  // Fold lines
+  px(ctx, ox + 18, fy + 30, 1, 14, P.cloakShade);
+  px(ctx, ox + 29, fy + 32, 1, 12, cloakHi);
+  px(ctx, ox + 22, fy + 40, 4, 2, cloakHi);
 
-  // Legs / pants
-  const ly = fy + 30;
-  px(ctx, ox + 11 - stride, ly, 4, 8, P.pants);
-  px(ctx, ox + 17 + stride, ly, 4, 8, P.pants);
-  px(ctx, ox + 11 - stride, ly, 4, 3, P.pantsHi);
-  px(ctx, ox + 17 + stride, ly, 4, 3, P.pantsHi);
+  // Legs
+  const ly = fy + 46;
+  px(ctx, ox + 16 - stride, ly, 6, 12, P.pants);
+  px(ctx, ox + 26 + stride, ly, 6, 12, P.pants);
+  px(ctx, ox + 16 - stride, ly, 6, 4, P.pantsHi);
+  px(ctx, ox + 26 + stride, ly, 6, 4, P.pantsHi);
+  px(ctx, ox + 16 - stride, ly + 8, 6, 2, P.pantsShade);
+  px(ctx, ox + 26 + stride, ly + 8, 6, 2, P.pantsShade);
 
-  // Boots
-  px(ctx, ox + 10 - stride, ly + 7, 6, 4, P.boot);
-  px(ctx, ox + 16 + stride, ly + 7, 6, 4, P.boot);
-  px(ctx, ox + 10 - stride, ly + 7, 6, 1, P.bootHi);
-  px(ctx, ox + 16 + stride, ly + 7, 6, 1, P.bootHi);
+  // Boots with heel + toe
+  px(ctx, ox + 15 - stride, ly + 11, 8, 5, P.boot);
+  px(ctx, ox + 25 + stride, ly + 11, 8, 5, P.boot);
+  px(ctx, ox + 15 - stride, ly + 11, 8, 2, P.bootHi);
+  px(ctx, ox + 25 + stride, ly + 11, 8, 2, P.bootHi);
+  px(ctx, ox + 14 - stride, ly + 14, 3, 2, P.bootShade);
+  px(ctx, ox + 31 + stride, ly + 14, 3, 2, P.bootShade);
 
-  // Torso / tunic
-  const ty = fy + 16 + breath;
-  px(ctx, ox + 10, ty, 12, 14, tunic);
-  px(ctx, ox + 11, ty + 1, 10, 3, tunicHi);
-  px(ctx, ox + 10, ty + 10, 12, 4, P.tunicShade);
-  // Collar / V-cut
-  px(ctx, ox + 14, ty, 4, 3, P.skin);
-  px(ctx, ox + 15, ty + 2, 2, 2, P.skinShade);
+  // Torso
+  const ty = fy + 24 + breath;
+  px(ctx, ox + 15, ty, 18, 22, tunic);
+  px(ctx, ox + 16, ty + 1, 16, 5, tunicHi);
+  px(ctx, ox + 16, ty + 6, 6, 4, P.tunicMid);
+  px(ctx, ox + 15, ty + 15, 18, 7, P.tunicShade);
+  // Collar / neck
+  px(ctx, ox + 20, ty, 8, 5, P.skin);
+  px(ctx, ox + 22, ty + 3, 4, 3, P.skinShade);
+  // Scarf accent
+  px(ctx, ox + 18, ty + 4, 12, 2, P.scarf);
+  px(ctx, ox + 28, ty + 6, 3, 5, P.scarfHi);
 
-  // Belt + buckle
-  px(ctx, ox + 10, ty + 11, 12, 2, P.belt);
-  px(ctx, ox + 14, ty + 11, 4, 2, P.buckle);
-  px(ctx, ox + 15, ty + 11, 2, 1, P.beltHi);
+  // Belt + pouch
+  px(ctx, ox + 15, ty + 16, 18, 3, P.belt);
+  px(ctx, ox + 21, ty + 16, 6, 3, P.buckle);
+  px(ctx, ox + 22, ty + 16, 4, 1, P.beltHi);
+  px(ctx, ox + 30, ty + 18, 4, 3, P.belt);
 
-  // Arms
-  const ay = ty + 2;
-  px(ctx, ox + 7, ay + armSwing, 3, 8, tunic);
-  px(ctx, ox + 22, ay - armSwing, 3, 8, tunic);
-  px(ctx, ox + 6, ay + 6 + armSwing, 3, 3, P.skin);
-  px(ctx, ox + 23, ay + 6 - armSwing, 3, 3, P.skin);
-  px(ctx, ox + 6, ay + 6 + armSwing, 3, 1, P.skinShade);
-  px(ctx, ox + 23, ay + 6 - armSwing, 3, 1, P.skinShade);
+  // Arms + hands
+  const ay = ty + 3;
+  px(ctx, ox + 10, ay + armSwing, 5, 12, tunic);
+  px(ctx, ox + 33, ay - armSwing, 5, 12, tunic);
+  px(ctx, ox + 10, ay + 1 + armSwing, 5, 3, tunicHi);
+  px(ctx, ox + 33, ay + 1 - armSwing, 5, 3, tunicHi);
+  px(ctx, ox + 9, ay + 10 + armSwing, 5, 4, P.skin);
+  px(ctx, ox + 34, ay + 10 - armSwing, 5, 4, P.skin);
+  px(ctx, ox + 9, ay + 10 + armSwing, 5, 1, P.skinShade);
+  px(ctx, ox + 34, ay + 10 - armSwing, 5, 1, P.skinShade);
 
   // Head
-  const hy = fy + 6 + bob;
-  px(ctx, ox + 11, hy + 2, 10, 10, P.skin);
-  px(ctx, ox + 12, hy + 9, 8, 2, P.skinShade);
-  px(ctx, ox + 13, hy + 3, 3, 2, P.skinHi);
+  const hy = fy + 8 + bob;
+  px(ctx, ox + 16, hy + 4, 16, 14, P.skin);
+  px(ctx, ox + 17, hy + 14, 14, 3, P.skinShade);
+  px(ctx, ox + 18, hy + 5, 5, 3, P.skinHi);
+  px(ctx, ox + 28, hy + 8, 3, 2, P.blush);
 
-  // Hair bowl + fringe
-  px(ctx, ox + 10, hy, 12, 5, P.hair);
-  px(ctx, ox + 11, hy - 1, 10, 2, P.hair);
-  px(ctx, ox + 12, hy + 1, 3, 2, P.hairHi);
-  px(ctx, ox + 10, hy + 3, 2, 4, P.hair);
-  px(ctx, ox + 20, hy + 3, 2, 4, P.hair);
+  // Hair mass
+  px(ctx, ox + 15, hy, 18, 8, P.hair);
+  px(ctx, ox + 16, hy - 2, 16, 3, P.hair);
+  px(ctx, ox + 17, hy + 1, 5, 3, P.hairHi);
+  px(ctx, ox + 26, hy + 2, 4, 2, P.hairMid);
+  px(ctx, ox + 14, hy + 4, 3, 7, P.hair);
+  px(ctx, ox + 31, hy + 4, 3, 7, P.hair);
   if (!north) {
-    px(ctx, ox + 13, hy + 4, 2, 2, P.hair);
-    px(ctx, ox + 17, hy + 4, 2, 2, P.hair);
-  }
-
-  if (!north) {
-    // Face: eyes, brow, blush, mouth
-    px(ctx, ox + 13, hy + 6, 2, 2, P.eyeWhite);
-    px(ctx, ox + 17, hy + 6, 2, 2, P.eyeWhite);
-    px(ctx, ox + 14, hy + 6, 1, 2, P.eye);
-    px(ctx, ox + 18, hy + 6, 1, 2, P.eye);
-    px(ctx, ox + 13, hy + 5, 2, 1, P.hair);
-    px(ctx, ox + 17, hy + 5, 2, 1, P.hair);
-    px(ctx, ox + 12, hy + 8, 2, 1, P.blush);
-    px(ctx, ox + 18, hy + 8, 2, 1, P.blush);
-    px(ctx, ox + 15, hy + 9, 2, 1, P.skinDeep);
+    px(ctx, ox + 18, hy + 6, 3, 3, P.hairMid);
+    px(ctx, ox + 27, hy + 6, 3, 3, P.hair);
+    // Face
+    px(ctx, ox + 19, hy + 9, 3, 3, P.eyeWhite);
+    px(ctx, ox + 26, hy + 9, 3, 3, P.eyeWhite);
+    px(ctx, ox + 20, hy + 9, 2, 3, P.eye);
+    px(ctx, ox + 27, hy + 9, 2, 3, P.eye);
+    px(ctx, ox + 19, hy + 8, 3, 1, P.hair);
+    px(ctx, ox + 26, hy + 8, 3, 1, P.hair);
+    px(ctx, ox + 18, hy + 12, 3, 1, P.blush);
+    px(ctx, ox + 27, hy + 12, 3, 1, P.blush);
+    px(ctx, ox + 22, hy + 13, 4, 1, P.skinDeep);
+    px(ctx, ox + 23, hy + 14, 2, 1, P.skinDeep);
   } else {
-    // Back of head — more hair mass
-    px(ctx, ox + 11, hy + 4, 10, 6, P.hair);
-    px(ctx, ox + 12, hy + 5, 3, 2, P.hairHi);
+    px(ctx, ox + 16, hy + 6, 16, 10, P.hair);
+    px(ctx, ox + 18, hy + 8, 5, 3, P.hairHi);
+    px(ctx, ox + 27, hy + 9, 4, 2, P.hairMid);
   }
 
-  // Outline accents (1px ink silhouette cues)
-  px(ctx, ox + 10, hy, 1, 1, P.outline);
-  px(ctx, ox + 21, hy, 1, 1, P.outline);
-  px(ctx, ox + 10, ty, 1, 12, P.outline);
-  px(ctx, ox + 21, ty, 1, 12, P.outline);
+  // Ink outline ticks
+  px(ctx, ox + 15, hy, 1, 2, P.outline);
+  px(ctx, ox + 32, hy, 1, 2, P.outline);
+  px(ctx, ox + 15, ty, 1, 18, P.outline);
+  px(ctx, ox + 32, ty, 1, 18, P.outline);
+  px(ctx, ox + 16 - stride, ly + 11, 1, 5, P.outline);
+  px(ctx, ox + 32 + stride, ly + 11, 1, 5, P.outline);
 }
 
 function px(

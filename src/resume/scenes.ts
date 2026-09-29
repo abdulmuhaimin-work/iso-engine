@@ -11,6 +11,18 @@ import { PROFILE } from "./profile";
 import { resumePage, type ResumeSection } from "./openPage";
 import { createLobbyMap, createCareerMap, createStudioMap } from "./map";
 
+function addBrickProp(
+  world: World,
+  x: number,
+  y: number,
+  preset: keyof typeof PRESETS,
+  scale = 0.85,
+): Entity {
+  const e = world.add(new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale }));
+  e.brickModel = BrickModel.fromJSON(PRESETS[preset]!());
+  return e;
+}
+
 function addPage(
   world: World,
   x: number,
@@ -19,18 +31,15 @@ function addPage(
   name: string,
   section: ResumeSection,
   flag: string,
-  kind: "actor" | "block" = "actor",
+  kind: "actor" | "prop" = "actor",
+  preset: keyof typeof PRESETS = "crate",
 ): Entity {
-  const e = world.add(
-    new Entity(
-      { x: x + 0.5, y: y + 0.5 },
-      kind === "block"
-        ? { kind: "block", color, width: 18, height: 26 }
-        : { kind: "actor", color },
-    ),
-  );
+  const e =
+    kind === "prop"
+      ? addBrickProp(world, x, y, preset, 0.9)
+      : world.add(new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "actor", color }));
   e.interactable = {
-    prompt: kind === "block" ? "Read" : "View",
+    prompt: kind === "prop" ? "Read" : "View",
     name,
     radius: 1.45,
     onInteract: ({ webpage, flags }) => {
@@ -60,7 +69,7 @@ export function createLobbyScene(): SceneDefinition {
       tree2.brickModel = BrickModel.fromJSON(PRESETS.tree!());
 
       addPage(world, 4, 11, "#c4a882", "Skills gardener", "skills", "visited_skills");
-      addPage(world, 11, 16, "#c9b896", "Mailbox", "contact", "visited_contact", "block");
+      addPage(world, 11, 16, "#c9b896", "Mailbox", "contact", "visited_contact", "prop", "crate");
 
       if (ctx.minigames) {
         addMinigameSpot(world, 6, 9, ctx.minigames, "fishing", {
@@ -70,12 +79,7 @@ export function createLobbyScene(): SceneDefinition {
         });
       }
 
-      const terminal = world.add(
-        new Entity(
-          { x: 14.5, y: 10.5 },
-          { kind: "block", color: "#2a3344", width: 22, height: 30 },
-        ),
-      );
+      const terminal = addBrickProp(world, 14, 10, "house", 0.85);
       terminal.interactable = {
         prompt: "Open",
         name: "Website kiosk",
@@ -86,18 +90,8 @@ export function createLobbyScene(): SceneDefinition {
         },
       };
 
-      world.add(
-        new Entity(
-          { x: 11.5, y: 5.5 },
-          { kind: "block", color: "#4a6f9a", width: 20, height: 28 },
-        ),
-      );
-      world.add(
-        new Entity(
-          { x: 17.5, y: 9.5 },
-          { kind: "block", color: "#b85c4a", width: 20, height: 28 },
-        ),
-      );
+      addBrickProp(world, 11, 5, "column", 1.0);
+      addBrickProp(world, 17, 9, "house", 0.78);
 
       return {
         world,
@@ -220,7 +214,8 @@ export function createStudioScene(): SceneDefinition {
           project.name,
           "projects",
           "visited_projects",
-          "block",
+          "prop",
+          "crate",
         );
       });
 

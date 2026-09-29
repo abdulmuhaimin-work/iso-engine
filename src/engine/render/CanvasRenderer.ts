@@ -689,28 +689,43 @@ export class CanvasRenderer {
     const color = sprite.color ?? "#f2f2f2";
 
     if (kind === "actor") {
-      const r = Math.max(4, Math.round(10 * camera.zoom));
+      // Dense pixel silhouette (≈24×40 design cells scaled by zoom).
+      const s = Math.max(1, Math.round(camera.zoom));
       const x = Math.round(screen.x + ox);
       const y = Math.round(screen.y + oy);
       ctx.imageSmoothingEnabled = false;
+      const px = (dx: number, dy: number, w: number, h: number, c: string) => {
+        ctx.fillStyle = c;
+        ctx.fillRect(x + dx * s, y + dy * s, w * s, h * s);
+      };
 
-      ctx.fillStyle = "rgba(0,0,0,0.4)";
-      ctx.fillRect(x - r * 0.55, y - r * 0.15, r * 1.1, r * 0.35);
-
-      ctx.fillStyle = shade(color, -28);
-      ctx.fillRect(x - r * 0.45, y - r * 1.85, r * 0.9, r * 1.5);
-      ctx.fillStyle = color;
-      ctx.fillRect(x - r * 0.4, y - r * 1.8, r * 0.8, r * 0.9);
-      ctx.fillStyle = shade(color, 32);
-      ctx.fillRect(x - r * 0.35, y - r * 1.75, r * 0.35, r * 0.35);
-
-      ctx.fillStyle = "#f0c9a0";
-      ctx.fillRect(x - r * 0.35, y - r * 2.45, r * 0.7, r * 0.7);
-      ctx.fillStyle = "#2a1e28";
-      ctx.fillRect(x - r * 0.35, y - r * 2.5, r * 0.7, r * 0.28);
-      ctx.fillStyle = "#1a1420";
-      ctx.fillRect(x - r * 0.18, y - r * 2.15, r * 0.12, r * 0.12);
-      ctx.fillRect(x + r * 0.06, y - r * 2.15, r * 0.12, r * 0.12);
+      px(-7, -1, 14, 3, "rgba(0,0,0,0.4)");
+      // Legs
+      px(-5, -10, 4, 9, shade(color, -40));
+      px(1, -10, 4, 9, shade(color, -40));
+      px(-5, -3, 4, 3, shade(color, -55));
+      px(1, -3, 4, 3, shade(color, -55));
+      // Body
+      px(-6, -22, 12, 13, shade(color, -18));
+      px(-5, -21, 10, 5, color);
+      px(-5, -16, 10, 3, shade(color, 28));
+      px(-4, -12, 8, 2, shade(color, -8));
+      // Arms
+      px(-8, -20, 3, 8, color);
+      px(5, -20, 3, 8, color);
+      px(-8, -13, 3, 3, "#f0c9a0");
+      px(5, -13, 3, 3, "#f0c9a0");
+      // Head + hair + face
+      px(-5, -32, 10, 10, "#f0c9a0");
+      px(-4, -24, 8, 2, "#d4a078");
+      px(-5, -34, 10, 5, "#221820");
+      px(-6, -31, 2, 5, "#221820");
+      px(4, -31, 2, 5, "#221820");
+      px(-3, -29, 2, 2, "#f5efe6");
+      px(1, -29, 2, 2, "#f5efe6");
+      px(-2, -29, 1, 2, "#141018");
+      px(2, -29, 1, 2, "#141018");
+      px(-1, -26, 2, 1, "#b88060");
       return;
     }
 

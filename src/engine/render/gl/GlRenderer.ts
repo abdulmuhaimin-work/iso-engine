@@ -494,12 +494,41 @@ export class GlRenderer {
     const kind = sprite.kind ?? "actor";
     const color = sprite.color ?? "#f2f2f2";
     if (kind === "actor") {
-      const rad = 10 * camera.zoom;
-      this.pushSdf(x, y, rad * 0.7, rad * 0.35, [0, 0, 0, 0.35], 2, depth + 0.0002);
+      // Dense pixel silhouette via stacked rects (matches Canvas 2D actor).
+      const s = Math.max(1, camera.zoom);
       const [cr, cg, cb] = parseHex(color);
-      this.pushSdf(x, y - rad * 1.3, rad * 0.55, rad * 0.95, [cr / 255, cg / 255, cb / 255, 1], 3, depth);
-      const [hr, hg, hb] = parseHex(shade(color, 24));
-      this.pushSdf(x, y - rad * 2.4, rad * 0.45, rad * 0.45, [hr / 255, hg / 255, hb / 255, 1], 1, depth);
+      const body: [number, number, number] = [cr / 255, cg / 255, cb / 255];
+      const dark = parseHex(shade(color, -40)).map((v) => v / 255) as [number, number, number];
+      const mid = parseHex(shade(color, 20)).map((v) => v / 255) as [number, number, number];
+      const rect = (
+        dx: number,
+        dy: number,
+        w: number,
+        h: number,
+        rgb: [number, number, number],
+        a = 1,
+      ) => {
+        // Match Canvas fillRect: (dx,dy) is top-left of the pixel block.
+        const x0 = x + dx * s;
+        const y0 = y + dy * s;
+        const x1 = x0 + w * s;
+        const y1 = y0 + h * s;
+        this.pushColorTri(x0, y1, x1, y1, x1, y0, rgb[0], rgb[1], rgb[2], a, 0, depth);
+        this.pushColorTri(x0, y1, x1, y0, x0, y0, rgb[0], rgb[1], rgb[2], a, 0, depth);
+      };
+      rect(-7, -1, 14, 3, [0, 0, 0], 0.4);
+      rect(-5, -10, 4, 9, dark);
+      rect(1, -10, 4, 9, dark);
+      rect(-6, -22, 12, 13, body);
+      rect(-5, -21, 10, 5, mid);
+      rect(-8, -20, 3, 8, body);
+      rect(5, -20, 3, 8, body);
+      rect(-8, -13, 3, 3, [0.94, 0.79, 0.63]);
+      rect(5, -13, 3, 3, [0.94, 0.79, 0.63]);
+      rect(-5, -32, 10, 10, [0.94, 0.79, 0.63]);
+      rect(-5, -34, 10, 5, [0.13, 0.09, 0.13]);
+      rect(-3, -29, 2, 2, [0.96, 0.94, 0.9]);
+      rect(1, -29, 2, 2, [0.96, 0.94, 0.9]);
       return;
     }
 

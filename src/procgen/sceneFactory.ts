@@ -2,10 +2,12 @@ import {
   World,
   TileMap,
   Entity,
+  BrickModel,
   type SceneDefinition,
   type SceneManager,
   type Portal,
 } from "../engine";
+import { PRESETS } from "../builder/presets";
 import { Rng } from "./rng";
 import { generateLayout } from "./layout";
 import { populateScene } from "./content";
@@ -72,9 +74,10 @@ export function createProceduralScene(options: {
       const exitGate = world.add(
         new Entity(
           { x: layout.exit.x + 0.5, y: layout.exit.y + 0.5 },
-          { kind: "block", color: theme.palette.flower, width: 18, height: 28 },
+          { kind: "brick", scale: 0.9 },
         ),
       );
+      exitGate.brickModel = BrickModel.fromJSON(PRESETS.column!());
       exitGate.interactable = {
         prompt: "Continue",
         name: "Path onward",
