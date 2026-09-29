@@ -5,6 +5,7 @@ import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
 import type { WebPageViewer } from "../ui/WebPageViewer";
 import type { MiniGameHost } from "../minigame/MiniGameHost";
+import type { CutsceneDirector } from "../cutscene/CutsceneDirector";
 import {
   isInteractableEnabled,
   type Interactable,
@@ -17,6 +18,7 @@ export interface InteractionSystemOptions {
   dialogue: DialogueRunner;
   webpage?: WebPageViewer;
   minigames?: MiniGameHost;
+  cutscenes?: CutsceneDirector;
   /** Default interact key (KeyboardEvent.code). */
   key?: string;
 }
@@ -36,6 +38,7 @@ export class InteractionSystem {
   dialogue: DialogueRunner;
   webpage?: WebPageViewer;
   minigames?: MiniGameHost;
+  cutscenes?: CutsceneDirector;
   key: string;
   focus: InteractionFocus | null = null;
 
@@ -45,6 +48,7 @@ export class InteractionSystem {
     this.dialogue = options.dialogue;
     this.webpage = options.webpage;
     this.minigames = options.minigames;
+    this.cutscenes = options.cutscenes;
     this.key = options.key ?? "KeyE";
   }
 
@@ -53,7 +57,12 @@ export class InteractionSystem {
    * Skips scanning while dialogue is open.
    */
   update(actor: Entity): void {
-    if (this.dialogue.active || this.webpage?.active || this.minigames?.active) {
+    if (
+      this.dialogue.active ||
+      this.webpage?.active ||
+      this.minigames?.active ||
+      this.cutscenes?.active
+    ) {
       this.focus = null;
       return;
     }
@@ -78,7 +87,13 @@ export class InteractionSystem {
 
   /** Activate current focus (e.g. on KeyE). Returns true if something ran. */
   tryInteract(actor: Entity): boolean {
-    if (this.dialogue.active || this.webpage?.active || this.minigames?.active || !this.focus) {
+    if (
+      this.dialogue.active ||
+      this.webpage?.active ||
+      this.minigames?.active ||
+      this.cutscenes?.active ||
+      !this.focus
+    ) {
       return false;
     }
     const { entity, interactable } = this.focus;
@@ -90,6 +105,7 @@ export class InteractionSystem {
       dialogue: this.dialogue,
       webpage: this.webpage,
       minigames: this.minigames,
+      cutscenes: this.cutscenes,
     };
     interactable.onInteract(ctx);
     return true;

@@ -5,6 +5,7 @@ import type { DialogueRunner } from "../dialogue/DialogueRunner";
 
 import type { WebPageViewer } from "../ui/WebPageViewer";
 import type { MiniGameHost } from "../minigame/MiniGameHost";
+import type { CutsceneDirector } from "../cutscene/CutsceneDirector";
 
 export interface InteractContext {
   world: World;
@@ -14,6 +15,7 @@ export interface InteractContext {
   dialogue: DialogueRunner;
   webpage?: WebPageViewer;
   minigames?: MiniGameHost;
+  cutscenes?: CutsceneDirector;
 }
 
 export interface Interactable {

@@ -205,6 +205,132 @@ body {
   transition: none;
 }
 
+#cutscene-root {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.cutscene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cutscene.hidden {
+  display: none;
+}
+
+.cutscene__letterbox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: #030508;
+  opacity: 0;
+  transition: height 0.35s ease, opacity 0.25s ease;
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.6);
+}
+
+.cutscene--letterbox .cutscene__letterbox--top {
+  top: 0;
+  height: 10vh;
+  opacity: 1;
+}
+
+.cutscene--letterbox .cutscene__letterbox--bottom {
+  bottom: 0;
+  height: 10vh;
+  opacity: 1;
+}
+
+.cutscene__art-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -52%);
+  padding: 6px;
+  background: #0a1018;
+  border: 2px solid rgba(255, 224, 138, 0.35);
+  box-shadow:
+    0 0 0 2px #05070a,
+    0 20px 48px rgba(0, 0, 0, 0.65);
+  image-rendering: pixelated;
+}
+
+.cutscene__art-wrap.hidden {
+  display: none;
+}
+
+.cutscene__art-wrap--left {
+  left: 18%;
+  transform: translate(-50%, -52%);
+}
+
+.cutscene__art-wrap--right {
+  left: 82%;
+  transform: translate(-50%, -52%);
+}
+
+.cutscene__art {
+  display: block;
+  width: min(320px, 42vw);
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.cutscene__caption {
+  position: absolute;
+  left: 50%;
+  bottom: 12vh;
+  transform: translateX(-50%);
+  max-width: 36rem;
+  width: 90%;
+  padding: 0.85rem 1rem;
+  background: rgba(8, 12, 18, 0.88);
+  border: 2px solid rgba(255, 224, 138, 0.28);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  text-align: center;
+}
+
+.cutscene--caption .cutscene__caption {
+  opacity: 1;
+}
+
+.cutscene__caption-speaker {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+
+.cutscene__caption-text {
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.cutscene__skip {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 238, 244, 0.45);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.cutscene--caption .cutscene__skip {
+  opacity: 1;
+}
+
 #minigame-root {
   position: fixed;
   inset: 0;

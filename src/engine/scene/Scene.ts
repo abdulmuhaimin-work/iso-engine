@@ -7,6 +7,7 @@ import type { DialogueRunner } from "../dialogue/DialogueRunner";
 import type { SceneManager } from "./SceneManager";
 import type { WebPageViewer } from "../ui/WebPageViewer";
 import type { MiniGameHost } from "../minigame/MiniGameHost";
+import type { CutsceneDirector } from "../cutscene/CutsceneDirector";
 
 export interface SpawnPoint {
   id: string;
@@ -46,6 +47,7 @@ export interface SceneContext {
   player: Entity;
   webpage?: WebPageViewer;
   minigames?: MiniGameHost;
+  cutscenes?: CutsceneDirector;
 }
 
 export interface SceneDefinition {

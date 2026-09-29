@@ -5,6 +5,7 @@ import type { Flags } from "../dialogue/Flags";
 import type { DialogueRunner } from "../dialogue/DialogueRunner";
 import type { WebPageViewer } from "../ui/WebPageViewer";
 import type { MiniGameHost } from "../minigame/MiniGameHost";
+import type { CutsceneDirector } from "../cutscene/CutsceneDirector";
 import type { Vec2 } from "../math/Vec2";
 import { distance } from "../math/Vec2";
 import type {
@@ -27,6 +28,7 @@ export interface SceneManagerOptions {
   player: Entity;
   webpage?: WebPageViewer;
   minigames?: MiniGameHost;
+  cutscenes?: CutsceneDirector;
   /** Optional overlay element that receives opacity 0–1 during fades. */
   fadeElement?: HTMLElement | null;
 }
@@ -43,6 +45,7 @@ export class SceneManager {
   readonly player: Entity;
   readonly webpage?: WebPageViewer;
   readonly minigames?: MiniGameHost;
+  readonly cutscenes?: CutsceneDirector;
 
   private readonly defs = new Map<string, SceneDefinition>();
   private current: ActiveScene | null = null;
@@ -60,6 +63,7 @@ export class SceneManager {
     this.player = options.player;
     this.webpage = options.webpage;
     this.minigames = options.minigames;
+    this.cutscenes = options.cutscenes;
     this.fadeElement = options.fadeElement ?? null;
     this.syncFadeDom();
   }
@@ -208,6 +212,7 @@ export class SceneManager {
       player: this.player,
       webpage: this.webpage,
       minigames: this.minigames,
+      cutscenes: this.cutscenes,
     };
     const built = def.build(ctx);
     const spawn = built.spawns[spawnId] ?? built.spawns.default;
