@@ -13,11 +13,16 @@ uniform vec2 uViewport;
 out vec4 fragColor;
 void main() {
   vec2 uv = gl_FragCoord.xy / uViewport;
-  vec3 top = uClear * 1.35 + vec3(0.04, 0.05, 0.07);
-  vec3 bot = uClear * 0.55;
-  vec3 col = mix(bot, top, clamp(uv.y, 0.0, 1.0));
-  float sun = 1.0 - smoothstep(0.0, 0.55, length(uv - vec2(0.22, 0.88)));
-  col += vec3(1.0, 0.78, 0.45) * sun * 0.16;
+  vec3 top = mix(uClear, vec3(0.42, 0.56, 0.72), 0.32) + vec3(0.05, 0.06, 0.08);
+  vec3 mid = uClear * 1.05;
+  vec3 bot = mix(uClear, vec3(0.03, 0.05, 0.09), 0.55);
+  vec3 col = mix(bot, mid, smoothstep(0.0, 0.55, uv.y));
+  col = mix(col, top, smoothstep(0.55, 1.0, uv.y));
+  float sun = 1.0 - smoothstep(0.0, 0.58, length(uv - vec2(0.18, 0.9)));
+  col += vec3(1.0, 0.72, 0.4) * sun * 0.28;
+  col += vec3(0.45, 0.25, 0.55) * sun * 0.06;
+  float haze = smoothstep(0.35, 0.72, 1.0 - uv.y) * (1.0 - abs(uv.x - 0.5) * 0.4);
+  col = mix(col, vec3(0.55, 0.68, 0.82), haze * 0.12);
   fragColor = vec4(col, 1.0);
 }
 `;
@@ -28,10 +33,12 @@ uniform vec2 uViewport;
 out vec4 fragColor;
 void main() {
   vec2 uv = gl_FragCoord.xy / uViewport;
-  vec2 c = uv - vec2(0.42, 0.68);
-  float v = smoothstep(0.18, 0.95, length(c * vec2(1.0, 1.15)));
-  float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-  fragColor = vec4(0.02, 0.04, 0.07, v * 0.46 + grain * 0.04);
+  vec2 c = uv - vec2(0.45, 0.72);
+  float v = smoothstep(0.12, 0.98, length(c * vec2(1.05, 1.2)));
+  float fog = smoothstep(0.45, 1.0, 1.0 - uv.y);
+  float grain = fract(sin(dot(floor(gl_FragCoord.xy * 0.5), vec2(12.9898, 78.233))) * 43758.5453);
+  vec3 tint = mix(vec3(0.02, 0.04, 0.08), vec3(0.12, 0.18, 0.28), fog * 0.35);
+  fragColor = vec4(tint, v * 0.58 + fog * 0.1 + grain * 0.045);
 }
 `;
 
@@ -120,68 +127,73 @@ float fbm(vec2 p) {
 }
 
 vec3 shadeMaterial(float mat, vec3 base, vec2 w, float time) {
-  float n = fbm(w * 3.4);
-  float n2 = fbm(w * 8.0 + 17.0);
+  // Snap world UVs to a chunky pixel grid for a tile-game look.
+  vec2 pw = floor(w * 10.0) / 10.0;
+  float n = fbm(pw * 3.4);
+  float n2 = fbm(pw * 8.0 + 17.0);
   vec3 col = base;
 
   if (mat < 0.5) {
-    col *= 0.82 + n * 0.32;
+    col *= 0.78 + n * 0.38;
   } else if (mat < 2.5) {
-    float blade = step(mat < 1.5 ? 0.7 : 0.52, hash21(floor(w * 18.0)));
-    col *= 0.72 + n * 0.4 + blade * 0.12;
-    col *= vec3(0.92, 1.08, 0.78);
-    if (mat >= 1.5) col *= 0.88;
+    float blade = step(mat < 1.5 ? 0.62 : 0.48, hash21(floor(pw * 14.0)));
+    col *= 0.68 + n * 0.42 + blade * 0.16;
+    col *= vec3(0.88, 1.12, 0.72);
+    if (mat >= 1.5) col *= 0.86;
   } else if (mat < 3.5) {
-    float wave = 0.5 + 0.5 * sin(w.x * 4.2 + w.y * 1.4 + time * 1.6);
-    float cau = pow(max(0.0, 0.5 + 0.5 * sin(w.x * 1.1 - w.y * 3.2 + time * 0.9) * wave), 3.0);
-    col *= vec3(0.85, 1.02, 1.18) * (0.72 + n * 0.18);
-    col += vec3(0.25, 0.4, 0.45) * cau;
+    float wave = 0.5 + 0.5 * sin(pw.x * 4.2 + pw.y * 1.4 + time * 1.6);
+    float cau = pow(max(0.0, 0.5 + 0.5 * sin(pw.x * 1.1 - pw.y * 3.2 + time * 0.9) * wave), 3.0);
+    col *= vec3(0.78, 1.05, 1.28) * (0.68 + n * 0.22);
+    col += vec3(0.3, 0.48, 0.55) * cau;
   } else if (mat < 4.5) {
-    float grain = fbm(vec2(w.x * 2.2, w.y * 9.0));
-    float rings = 0.5 + 0.5 * sin(w.x * 7.0 + grain * 7.0);
-    col *= vec3(1.08, 0.95, 0.72) * (0.62 + rings * 0.38);
+    float grain = fbm(vec2(pw.x * 2.2, pw.y * 9.0));
+    float rings = 0.5 + 0.5 * sin(pw.x * 7.0 + grain * 7.0);
+    col *= vec3(1.12, 0.92, 0.68) * (0.58 + rings * 0.42);
   } else if (mat < 5.5) {
-    float crack = step(0.82, n2);
-    col *= 0.7 + n * 0.28 - crack * 0.22;
+    float crack = step(0.8, n2);
+    col *= 0.66 + n * 0.32 - crack * 0.24;
   } else if (mat < 6.5) {
-    float row = floor(w.y * 7.0);
-    float grout = step(0.86, fract(w.y * 7.0)) + step(0.9, fract(w.x * 5.0 + row * 0.5));
-    col *= 0.78 + n * 0.16 - grout * 0.18;
+    float row = floor(pw.y * 7.0);
+    float grout = step(0.86, fract(pw.y * 7.0)) + step(0.9, fract(pw.x * 5.0 + row * 0.5));
+    col *= 0.74 + n * 0.18 - grout * 0.2;
   } else if (mat < 9.5) {
-    float pebble = step(0.88, hash21(floor(w * 10.0)));
-    col *= vec3(1.04, 0.98, 0.82) * (0.74 + n * 0.26 + pebble * 0.16);
+    float pebble = step(0.86, hash21(floor(pw * 8.0)));
+    col *= vec3(1.08, 0.98, 0.78) * (0.7 + n * 0.28 + pebble * 0.18);
   } else if (mat < 10.5) {
-    float weave = mod(floor(w.x * 8.0) + floor(w.y * 8.0), 2.0);
-    col *= 0.78 + n * 0.1 + weave * 0.08;
-    col *= vec3(1.05, 0.9, 0.98);
+    float weave = mod(floor(pw.x * 8.0) + floor(pw.y * 8.0), 2.0);
+    col *= 0.74 + n * 0.12 + weave * 0.1;
+    col *= vec3(1.08, 0.88, 1.0);
   } else if (mat < 11.5) {
-    col *= 0.68 + n * 0.22 + step(0.93, hash21(floor(w * 20.0))) * 0.12;
+    col *= 0.64 + n * 0.26 + step(0.92, hash21(floor(pw * 16.0))) * 0.14;
   } else if (mat < 12.5) {
-    float crack = step(0.82, n2);
-    col *= (0.7 + n * 0.28 - crack * 0.22) * 0.78;
+    float crack = step(0.8, n2);
+    col *= (0.66 + n * 0.3 - crack * 0.24) * 0.74;
   } else if (mat < 13.5) {
-    float petal = step(0.7, hash21(floor(w * 6.0)));
-    col = mix(base * vec3(0.7, 1.1, 0.7), base * vec3(1.2, 0.85, 1.15), petal);
-    col *= 0.8 + n * 0.2;
+    float petal = step(0.68, hash21(floor(pw * 5.0)));
+    col = mix(base * vec3(0.65, 1.15, 0.65), base * vec3(1.25, 0.8, 1.2), petal);
+    col *= 0.78 + n * 0.22;
   } else {
-    col *= 0.78 + n * 0.28;
+    col *= 0.74 + n * 0.32;
   }
+
+  // Mild per-channel quantization for a limited pixel palette feel.
+  col = floor(col * 10.0 + 0.5) / 10.0;
   return col;
 }
 
 void main() {
   vec3 col = shadeMaterial(vMat, vColor, vWorld, uTime);
-  float lit = 0.58 + 0.42 * clamp(0.55 - vCorner.x * 0.42 - vCorner.y * 0.55, 0.0, 1.0);
-  if (vFace > 0.5 && vFace < 1.5) lit *= 0.72;
-  if (vFace > 1.5) lit *= 0.5;
+  float lit = 0.52 + 0.48 * clamp(0.58 - vCorner.x * 0.42 - vCorner.y * 0.55, 0.0, 1.0);
+  if (vFace > 0.5 && vFace < 1.5) lit *= 0.68;
+  if (vFace > 1.5) lit *= 0.46;
   col *= lit;
-  col *= 1.0 - vAo;
+  col *= 1.0 - vAo * 1.15;
 
   if (vFace < 0.5) {
     float edge = abs(abs(vCorner.x) + abs(vCorner.y) - 1.0);
-    col += vec3(0.18, 0.14, 0.08) * (1.0 - smoothstep(0.0, 0.12, abs(vCorner.x + 1.0) + abs(vCorner.y + 1.0)));
-    if (uGrid > 0.5) col *= mix(vec3(1.0), vec3(0.82), 1.0 - smoothstep(0.0, 0.05, edge));
-    col *= mix(vec3(1.0), vec3(0.55, 0.62, 0.72), smoothstep(0.0, 0.18, abs(vCorner.x - 1.0) + abs(vCorner.y - 1.0)));
+    col += vec3(0.22, 0.16, 0.08) * (1.0 - smoothstep(0.0, 0.1, abs(vCorner.x + 1.0) + abs(vCorner.y + 1.0)));
+    if (uGrid > 0.5) col *= mix(vec3(1.0), vec3(0.78), 1.0 - smoothstep(0.0, 0.05, edge));
+    col *= mix(vec3(1.0), vec3(0.48, 0.55, 0.68), smoothstep(0.0, 0.18, abs(vCorner.x - 1.0) + abs(vCorner.y - 1.0)));
   }
 
   if (vMat > 2.5 && vMat < 3.5) {
