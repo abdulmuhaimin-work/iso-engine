@@ -7,6 +7,7 @@ import {
   type SceneDefinition,
 } from "../engine";
 import { PRESETS } from "../builder/presets";
+import { attachNpcAnimator } from "../demo/npcSheet";
 import { PROFILE } from "./profile";
 import { resumePage, type ResumeSection } from "./openPage";
 import { createLobbyMap, createCareerMap, createStudioMap } from "./map";
@@ -37,7 +38,10 @@ function addPage(
   const e =
     kind === "prop"
       ? addBrickProp(world, x, y, preset, 0.9)
-      : world.add(new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "actor", color }));
+      : world.add(new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "sheet", scale: 0.95 }));
+  if (kind !== "prop") {
+    e.animator = attachNpcAnimator(color, 0.95);
+  }
   e.interactable = {
     prompt: kind === "prop" ? "Read" : "View",
     name,

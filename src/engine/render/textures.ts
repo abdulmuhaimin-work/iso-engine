@@ -3,9 +3,9 @@ import type { TileMaterial } from "../world/TileMap";
 
 export type { TileMaterial };
 
-const SIZE = 96;
-/** Fine pixel-material cell — denser than the first style pass. */
-const PIXEL = 2;
+const SIZE = 128;
+/** Per-texel material sampling for density-2 tile detail. */
+const PIXEL = 1;
 
 /**
  * Cached procedural tile textures + a film-grain overlay.
@@ -117,7 +117,7 @@ function paintMaterial(
       const px = (x / PIXEL) | 0;
       const py = (y / PIXEL) | 0;
       const t = sample(material, px, py, seed);
-      const [qr, qg, qb] = quantizeRgb(cr * t.r + t.add, cg * t.g + t.add, cb * t.b + t.add, 16);
+      const [qr, qg, qb] = quantizeRgb(cr * t.r + t.add, cg * t.g + t.add, cb * t.b + t.add, 20);
       const i = (y * w + x) * 4;
       d[i] = qr;
       d[i + 1] = qg;

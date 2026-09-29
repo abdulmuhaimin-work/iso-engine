@@ -9,13 +9,14 @@ import {
 import { createIslandMap, createCaveMap } from "./map";
 import { miraDialogue } from "./npcDialogue";
 import { PRESETS } from "../builder/presets";
+import { attachNpcAnimator } from "./npcSheet";
 
 function addBrick(
   world: World,
   x: number,
   y: number,
   preset: keyof typeof PRESETS,
-  scale = 0.85,
+  scale = 0.9,
 ): Entity {
   const e = world.add(new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale }));
   e.brickModel = BrickModel.fromJSON(PRESETS[preset]!());
@@ -31,8 +32,9 @@ function addNpc(
   lines: string[],
 ): Entity {
   const npc = world.add(
-    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "actor", color }),
+    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "sheet", scale: 0.95 }),
   );
+  npc.animator = attachNpcAnimator(color, 0.95);
   npc.interactable = {
     prompt: "Talk",
     name,
@@ -59,10 +61,11 @@ export function createIslandScene(): SceneDefinition {
     build: (ctx) => {
       const world = new World(new TileMap(createIslandMap()));
 
-      // Plaza greeter
+      // Plaza greeter — dense pixel NPC sheet
       const mira = world.add(
-        new Entity({ x: 21.5, y: 21.5 }, { kind: "actor", color: "#7ec8e3" }),
+        new Entity({ x: 21.5, y: 21.5 }, { kind: "sheet", scale: 0.95 }),
       );
+      mira.animator = attachNpcAnimator("#7ec8e3", 0.95);
       mira.interactable = {
         prompt: "Talk",
         name: "Mira",
@@ -117,21 +120,17 @@ export function createIslandScene(): SceneDefinition {
         addBrick(world, tx, ty, "tree", 0.75 + ((tx + ty) % 3) * 0.05);
       }
 
-      // Street trees along avenues
+      // Street trees along avenues (thinned slightly for denser mesh cost)
       for (const [tx, ty] of [
         [5, 15],
-        [5, 23],
         [5, 31],
         [13, 7],
-        [21, 7],
         [29, 7],
-        [13, 37],
         [21, 33],
-        [29, 33],
         [37, 15],
         [37, 25],
       ] as const) {
-        addBrick(world, tx, ty, "tree", 0.7);
+        addBrick(world, tx, ty, "tree", 0.75);
       }
 
       // Plaza / district props
@@ -234,8 +233,9 @@ export function createCaveScene(): SceneDefinition {
       const world = new World(new TileMap(createCaveMap()));
 
       const hermit = world.add(
-        new Entity({ x: 4.5, y: 4.5 }, { kind: "actor", color: "#c4a882" }),
+        new Entity({ x: 4.5, y: 4.5 }, { kind: "sheet", scale: 0.95 }),
       );
+      hermit.animator = attachNpcAnimator("#c4a882", 0.95);
       hermit.interactable = {
         prompt: "Talk",
         name: "Hermit",

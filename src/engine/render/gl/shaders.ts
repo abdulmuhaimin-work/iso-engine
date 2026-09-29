@@ -127,8 +127,8 @@ float fbm(vec2 p) {
 }
 
 vec3 shadeMaterial(float mat, vec3 base, vec2 w, float time) {
-  // Snap world UVs to a denser pixel grid for crafted tile detail.
-  vec2 pw = floor(w * 20.0) / 20.0;
+  // Snap world UVs to an ultra-dense pixel grid for crafted tile detail.
+  vec2 pw = floor(w * 32.0) / 32.0;
   float n = fbm(pw * 3.4);
   float n2 = fbm(pw * 8.0 + 17.0);
   vec3 col = base;
@@ -177,7 +177,7 @@ vec3 shadeMaterial(float mat, vec3 base, vec2 w, float time) {
   }
 
   // Mild per-channel quantization for a limited pixel palette feel.
-  col = floor(col * 16.0 + 0.5) / 16.0;
+  col = floor(col * 20.0 + 0.5) / 20.0;
   return col;
 }
 

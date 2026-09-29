@@ -7,6 +7,7 @@ import {
   type Vec2,
 } from "../engine";
 import { PRESETS } from "../builder/presets";
+import { attachNpcAnimator } from "../demo/npcSheet";
 import { Rng } from "./rng";
 import type { LayoutResult } from "./layout";
 import type { SceneTheme } from "./themes";
@@ -119,8 +120,9 @@ function addNpc(
   sceneId: string,
 ): void {
   const npc = world.add(
-    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "actor", color }),
+    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "sheet", scale: 0.95 }),
   );
+  npc.animator = attachNpcAnimator(color, 0.95);
   npc.interactable = {
     prompt: "Talk",
     name,

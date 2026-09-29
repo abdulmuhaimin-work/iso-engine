@@ -143,14 +143,13 @@ export function drawCube(
   const th = m.tileHeight;
   const h = m.brickHeight;
   const topY = cy - h;
-  // Fine voxels: hard stepped shades read as pixel art; large bricks keep soft ramps.
-  const fine = h <= 10;
+  // Ultra-fine voxels: flat stepped shades (and skip strokes) for crisp + speed.
+  const fine = h <= 6;
 
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.imageSmoothingEnabled = false;
 
-  // Left face
   ctx.beginPath();
   ctx.moveTo(cx - tw, topY);
   ctx.lineTo(cx, topY + th);
@@ -167,7 +166,6 @@ export function drawCube(
   }
   ctx.fill();
 
-  // Right face
   ctx.beginPath();
   ctx.moveTo(cx + tw, topY);
   ctx.lineTo(cx, topY + th);
@@ -184,7 +182,6 @@ export function drawCube(
   }
   ctx.fill();
 
-  // Top face
   ctx.beginPath();
   ctx.moveTo(cx, topY - th);
   ctx.lineTo(cx + tw, topY);
@@ -202,18 +199,20 @@ export function drawCube(
   }
   ctx.fill();
 
-  ctx.strokeStyle = fine ? "rgba(255, 248, 230, 0.18)" : "rgba(255, 248, 230, 0.28)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cx, topY - th);
-  ctx.lineTo(cx - tw, topY);
-  ctx.stroke();
-  ctx.strokeStyle = fine ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.28)";
-  ctx.beginPath();
-  ctx.moveTo(cx - tw, topY);
-  ctx.lineTo(cx, topY + th);
-  ctx.lineTo(cx + tw, topY);
-  ctx.stroke();
+  if (!fine) {
+    ctx.strokeStyle = "rgba(255, 248, 230, 0.28)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, topY - th);
+    ctx.lineTo(cx - tw, topY);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(0,0,0,0.28)";
+    ctx.beginPath();
+    ctx.moveTo(cx - tw, topY);
+    ctx.lineTo(cx, topY + th);
+    ctx.lineTo(cx + tw, topY);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
