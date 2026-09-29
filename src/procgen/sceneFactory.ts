@@ -78,6 +78,7 @@ export function createProceduralScene(options: {
         ),
       );
       exitGate.brickModel = BrickModel.fromJSON(PRESETS.column!());
+      exitGate.data.fx = "glow";
       exitGate.interactable = {
         prompt: "Continue",
         name: "Path onward",

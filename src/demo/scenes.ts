@@ -20,6 +20,8 @@ function addBrick(
 ): Entity {
   const e = world.add(new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale }));
   e.brickModel = BrickModel.fromJSON(PRESETS[preset]!());
+  if (preset === "tree") e.data.fx = "foliage";
+  if (preset === "column" || preset === "stall") e.data.fx = "glow";
   return e;
 }
 

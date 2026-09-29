@@ -30,6 +30,7 @@ void main() {
 export const ATMOS_FRAG = `#version 300 es
 precision highp float;
 uniform vec2 uViewport;
+uniform float uTime;
 out vec4 fragColor;
 void main() {
   vec2 uv = gl_FragCoord.xy / uViewport;
@@ -37,7 +38,9 @@ void main() {
   float v = smoothstep(0.12, 0.98, length(c * vec2(1.05, 1.2)));
   float fog = smoothstep(0.45, 1.0, 1.0 - uv.y);
   float grain = fract(sin(dot(floor(gl_FragCoord.xy * 0.5), vec2(12.9898, 78.233))) * 43758.5453);
+  float drift = 0.5 + 0.5 * sin(uTime * 0.15 + uv.x * 2.0);
   vec3 tint = mix(vec3(0.02, 0.04, 0.08), vec3(0.12, 0.18, 0.28), fog * 0.35);
+  tint = mix(tint, vec3(0.18, 0.12, 0.08), drift * fog * 0.08);
   fragColor = vec4(tint, v * 0.58 + fog * 0.1 + grain * 0.045);
 }
 `;
@@ -141,10 +144,12 @@ vec3 shadeMaterial(float mat, vec3 base, vec2 w, float time) {
     col *= vec3(0.88, 1.12, 0.72);
     if (mat >= 1.5) col *= 0.86;
   } else if (mat < 3.5) {
-    float wave = 0.5 + 0.5 * sin(pw.x * 4.2 + pw.y * 1.4 + time * 1.6);
-    float cau = pow(max(0.0, 0.5 + 0.5 * sin(pw.x * 1.1 - pw.y * 3.2 + time * 0.9) * wave), 3.0);
+    float wave = 0.5 + 0.5 * sin(pw.x * 4.2 + pw.y * 1.4 + time * 1.85);
+    float cau = pow(max(0.0, 0.5 + 0.5 * sin(pw.x * 1.1 - pw.y * 3.2 + time * 1.05) * wave), 3.0);
+    float foam = smoothstep(0.72, 0.95, noise(pw * 3.0 + vec2(time * 0.2, -time * 0.15)));
     col *= vec3(0.78, 1.05, 1.28) * (0.68 + n * 0.22);
     col += vec3(0.3, 0.48, 0.55) * cau;
+    col += vec3(0.55, 0.7, 0.78) * foam * 0.18;
   } else if (mat < 4.5) {
     float grain = fbm(vec2(pw.x * 2.2, pw.y * 9.0));
     float rings = 0.5 + 0.5 * sin(pw.x * 7.0 + grain * 7.0);

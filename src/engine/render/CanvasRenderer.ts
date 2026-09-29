@@ -8,6 +8,7 @@ import type { Vec2 } from "../math/Vec2";
 import { BrickRenderer } from "./BrickRenderer";
 import { mix, shade } from "./color";
 import { materialFromName, TextureBank, type TileMaterial } from "./textures";
+import type { ParticleSystem } from "../fx/Particles";
 
 export interface RendererOptions {
   clearColor?: string;
@@ -26,6 +27,7 @@ export class CanvasRenderer {
   hoverTile: Vec2 | null = null;
   /** Optional tile path to highlight (integer coords). */
   pathTiles: Vec2[] | null = null;
+  particles: ParticleSystem | null = null;
   private readonly bricks = new BrickRenderer();
   private readonly textures = new TextureBank();
 
@@ -53,7 +55,7 @@ export class CanvasRenderer {
     ctx.imageSmoothingEnabled = false;
     const vw = camera.viewportWidth;
     const vh = camera.viewportHeight;
-    this.drawSky(vw, vh);
+    this.drawSky(vw, vh, time);
 
     const tileSize = camera.tileSize();
     const map = world.map;
@@ -124,10 +126,35 @@ export class CanvasRenderer {
       this.drawEntity(entity, camera, 0, assets);
     }
 
+    this.drawParticles(camera, world);
     this.drawAtmosphere(vw, vh);
   }
 
-  private drawSky(width: number, height: number): void {
+  private drawParticles(camera: Camera, world: World): void {
+    if (!this.particles) return;
+    const { ctx } = this;
+    const list = this.particles.toScreen(camera, world);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (const p of list) {
+      const s = Math.max(1, Math.round(p.size));
+      ctx.globalAlpha = Math.min(1, Math.max(0, p.a));
+      ctx.fillStyle = `rgb(${p.r | 0},${p.g | 0},${p.b | 0})`;
+      if (p.kind === "spray") {
+        ctx.fillRect(Math.round(p.x) - s, Math.round(p.y) - s, s, s);
+        ctx.globalAlpha *= 0.55;
+        ctx.fillRect(Math.round(p.x), Math.round(p.y) - (s >> 1), s, s);
+      } else if (p.kind === "spark" || p.kind === "ember") {
+        ctx.fillRect(Math.round(p.x) - 1, Math.round(p.y) - s, 2, s + 1);
+        ctx.fillRect(Math.round(p.x) - s, Math.round(p.y) - 1, s * 2, 2);
+      } else {
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), s, s);
+      }
+    }
+    ctx.restore();
+  }
+
+  private drawSky(width: number, height: number, time: number): void {
     const { ctx } = this;
     const sky = ctx.createLinearGradient(0, 0, 0, height);
     sky.addColorStop(0, mix(this.clearColor, "#6a8fb8", 0.35));
@@ -137,12 +164,14 @@ export class CanvasRenderer {
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, width, height);
 
+    const sunX = width * (0.16 + Math.sin(time * 0.05) * 0.04);
+    const sunY = height * (0.1 + Math.cos(time * 0.04) * 0.03);
     const sun = ctx.createRadialGradient(
-      width * 0.18,
-      height * 0.1,
+      sunX,
+      sunY,
       4,
-      width * 0.18,
-      height * 0.1,
+      sunX,
+      sunY,
       Math.max(width, height) * 0.52,
     );
     sun.addColorStop(0, "rgba(255, 210, 140, 0.34)");
@@ -547,13 +576,27 @@ export class CanvasRenderer {
     const gx = cx + Math.sin(t) * hw * 0.35;
     const gy = cy + Math.cos(t * 0.8) * hh * 0.25;
     const sheen = ctx.createRadialGradient(gx, gy, 2, gx, gy, hw * 0.85);
-    sheen.addColorStop(0, "rgba(230, 250, 255, 0.28)");
-    sheen.addColorStop(0.45, "rgba(160, 210, 230, 0.08)");
+    sheen.addColorStop(0, "rgba(230, 250, 255, 0.32)");
+    sheen.addColorStop(0.45, "rgba(160, 210, 230, 0.1)");
     sheen.addColorStop(1, "rgba(0,0,0,0)");
     ctx.beginPath();
     diamond(ctx, cx, cy, hw, hh);
     ctx.fillStyle = sheen;
     ctx.fill();
+
+    // Soft foam crest drifting along the tile.
+    ctx.save();
+    ctx.beginPath();
+    diamond(ctx, cx, cy, hw, hh);
+    ctx.clip();
+    ctx.strokeStyle = "rgba(220, 240, 255, 0.22)";
+    ctx.lineWidth = 1;
+    const foamY = cy + Math.sin(t * 1.3 + cx * 0.02) * hh * 0.45;
+    ctx.beginPath();
+    ctx.moveTo(cx - hw * 0.7, foamY);
+    ctx.quadraticCurveTo(cx, foamY - hh * 0.15, cx + hw * 0.7, foamY + hh * 0.05);
+    ctx.stroke();
+    ctx.restore();
   }
 
   private drawPath(

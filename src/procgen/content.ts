@@ -108,6 +108,8 @@ function placeProp(world: World, cell: Vec2, theme: SceneTheme, rng: Rng): void 
     new Entity({ x: cell.x + 0.5, y: cell.y + 0.5 }, { kind: "brick", scale: rng.float(0.7, 0.95) }),
   );
   e.brickModel = BrickModel.fromJSON(PRESETS[preset]!());
+  if (preset === "tree") e.data.fx = "foliage";
+  if (preset === "column" || preset === "stall" || preset === "crystal") e.data.fx = "glow";
 }
 
 function addNpc(
@@ -212,6 +214,7 @@ function addLandmark(world: World, x: number, y: number, theme: SceneTheme, scen
     new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale: 0.95 }),
   );
   e.brickModel = BrickModel.fromJSON(PRESETS.column!());
+  e.data.fx = "glow";
   e.interactable = {
     prompt: "Read",
     name: "Waystone",

@@ -110,6 +110,44 @@ body {
   display: none;
 }
 
+.audio-controls {
+  margin-top: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.28rem 0.55rem 0.28rem 0.4rem;
+  background: rgba(12, 18, 26, 0.55);
+  border: 1px solid rgba(255, 224, 138, 0.28);
+  border-radius: 4px;
+  pointer-events: auto;
+}
+
+.audio-controls__mute {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #ffe08a;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+  min-width: 4.6rem;
+  text-align: left;
+}
+
+.audio-controls__mute:hover {
+  color: #fff3c2;
+}
+
+.audio-controls__volume {
+  width: 88px;
+  accent-color: #ffe08a;
+  cursor: pointer;
+}
+
 #dialogue-root {
   position: fixed;
   inset: 0;

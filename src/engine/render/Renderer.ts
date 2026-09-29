@@ -2,6 +2,7 @@ import type { Camera } from "../Camera";
 import type { Assets } from "../Assets";
 import type { World } from "../world/World";
 import type { Vec2 } from "../math/Vec2";
+import type { ParticleSystem } from "../fx/Particles";
 import { CanvasRenderer, type RendererOptions, pickTile } from "./CanvasRenderer";
 import { GlRenderer } from "./gl/GlRenderer";
 
@@ -78,6 +79,13 @@ export class Renderer {
   }
   set pathTiles(value: Vec2[] | null) {
     this.impl.pathTiles = value;
+  }
+
+  get particles(): ParticleSystem | null {
+    return this.impl.particles;
+  }
+  set particles(value: ParticleSystem | null) {
+    this.impl.particles = value;
   }
 
   resize(cssWidth: number, cssHeight: number): void {
