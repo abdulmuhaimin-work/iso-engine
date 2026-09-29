@@ -15,9 +15,9 @@ bootPlayable({
   startScene: "island",
   startSpawn: "default",
   zoom: 0.95,
-  clearColor: "#152028",
+  clearColor: "#121c28",
   atmosphere: (id) =>
-    procAtmosphere(id) ?? (id === "cave" ? "#0c1016" : "#152028"),
+    procAtmosphere(id) ?? (id === "cave" ? "#0a0e16" : "#121c28"),
   hudExtra: (flags, sceneId) => {
     const coin = flags.get("coins") === 1 ? " · 1 coin" : "";
     const flower = flags.get("has_flower") ? " · flower" : "";

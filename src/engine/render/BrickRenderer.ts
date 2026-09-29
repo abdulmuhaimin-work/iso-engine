@@ -143,62 +143,76 @@ export function drawCube(
   const th = m.tileHeight;
   const h = m.brickHeight;
   const topY = cy - h;
+  // Ultra-fine voxels: flat stepped shades (and skip strokes) for crisp + speed.
+  const fine = h <= 6;
 
   ctx.save();
   ctx.globalAlpha = alpha;
+  ctx.imageSmoothingEnabled = false;
 
-  // Left face
   ctx.beginPath();
   ctx.moveTo(cx - tw, topY);
   ctx.lineTo(cx, topY + th);
   ctx.lineTo(cx, topY + th + h);
   ctx.lineTo(cx - tw, topY + h);
   ctx.closePath();
-  const left = ctx.createLinearGradient(cx - tw, topY, cx, topY + th + h);
-  left.addColorStop(0, shade(color, -8));
-  left.addColorStop(1, shade(color, -36));
-  ctx.fillStyle = left;
+  if (fine) {
+    ctx.fillStyle = shade(color, -22);
+  } else {
+    const left = ctx.createLinearGradient(cx - tw, topY, cx, topY + th + h);
+    left.addColorStop(0, shade(color, -8));
+    left.addColorStop(1, shade(color, -36));
+    ctx.fillStyle = left;
+  }
   ctx.fill();
 
-  // Right face
   ctx.beginPath();
   ctx.moveTo(cx + tw, topY);
   ctx.lineTo(cx, topY + th);
   ctx.lineTo(cx, topY + th + h);
   ctx.lineTo(cx + tw, topY + h);
   ctx.closePath();
-  const right = ctx.createLinearGradient(cx, topY, cx + tw, topY + th + h);
-  right.addColorStop(0, shade(color, -28));
-  right.addColorStop(1, shade(color, -58));
-  ctx.fillStyle = right;
+  if (fine) {
+    ctx.fillStyle = shade(color, -44);
+  } else {
+    const right = ctx.createLinearGradient(cx, topY, cx + tw, topY + th + h);
+    right.addColorStop(0, shade(color, -28));
+    right.addColorStop(1, shade(color, -58));
+    ctx.fillStyle = right;
+  }
   ctx.fill();
 
-  // Top face
   ctx.beginPath();
   ctx.moveTo(cx, topY - th);
   ctx.lineTo(cx + tw, topY);
   ctx.lineTo(cx, topY + th);
   ctx.lineTo(cx - tw, topY);
   ctx.closePath();
-  const top = ctx.createLinearGradient(cx - tw, topY - th, cx + tw, topY + th);
-  top.addColorStop(0, shade(color, 38));
-  top.addColorStop(0.45, color);
-  top.addColorStop(1, shade(color, -18));
-  ctx.fillStyle = top;
+  if (fine) {
+    ctx.fillStyle = shade(color, 12);
+  } else {
+    const top = ctx.createLinearGradient(cx - tw, topY - th, cx + tw, topY + th);
+    top.addColorStop(0, shade(color, 38));
+    top.addColorStop(0.45, color);
+    top.addColorStop(1, shade(color, -18));
+    ctx.fillStyle = top;
+  }
   ctx.fill();
 
-  ctx.strokeStyle = "rgba(255, 248, 230, 0.28)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cx, topY - th);
-  ctx.lineTo(cx - tw, topY);
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(0,0,0,0.28)";
-  ctx.beginPath();
-  ctx.moveTo(cx - tw, topY);
-  ctx.lineTo(cx, topY + th);
-  ctx.lineTo(cx + tw, topY);
-  ctx.stroke();
+  if (!fine) {
+    ctx.strokeStyle = "rgba(255, 248, 230, 0.28)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, topY - th);
+    ctx.lineTo(cx - tw, topY);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(0,0,0,0.28)";
+    ctx.beginPath();
+    ctx.moveTo(cx - tw, topY);
+    ctx.lineTo(cx, topY + th);
+    ctx.lineTo(cx + tw, topY);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }

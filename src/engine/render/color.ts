@@ -30,6 +30,16 @@ export function clampByte(v: number): number {
   return Math.min(255, Math.max(0, v | 0));
 }
 
+/** Snap a channel toward a stepped pixel palette (levels = steps per channel). */
+export function quantizeChannel(v: number, levels = 12): number {
+  const step = 255 / Math.max(1, levels - 1);
+  return clampByte(Math.round(v / step) * step);
+}
+
+export function quantizeRgb(r: number, g: number, b: number, levels = 12): [number, number, number] {
+  return [quantizeChannel(r, levels), quantizeChannel(g, levels), quantizeChannel(b, levels)];
+}
+
 export function hash2(x: number, y: number, seed = 0): number {
   let n = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + (seed | 0);
   n = Math.imul(n ^ (n >>> 13), 1274126177);

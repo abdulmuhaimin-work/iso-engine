@@ -71,12 +71,13 @@ export function bootPlayable(options: PlayableOptions): void {
   const heroArt = createDemoHeroSheet();
   game.assets.registerSheet("hero", heroArt.sheet);
 
-  const player = new Entity({ x: 8.5, y: 7.5 }, { kind: "sheet", scale: 1.15 });
+  // 72×108 sheet — scale ~0.85 ≈ prior on-screen size with denser pixels.
+  const player = new Entity({ x: 8.5, y: 7.5 }, { kind: "sheet", scale: 0.88 });
   player.animator = new SpriteAnimator({
     sheet: heroArt.sheet,
     animations: heroArt.animations,
     initial: "idle",
-    scale: 1.15,
+    scale: 0.88,
   });
 
   const scenes = new SceneManager({

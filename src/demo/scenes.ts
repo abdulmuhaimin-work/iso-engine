@@ -9,23 +9,14 @@ import {
 import { createIslandMap, createCaveMap } from "./map";
 import { miraDialogue } from "./npcDialogue";
 import { PRESETS } from "../builder/presets";
-
-const BUILDING_COLORS = [
-  "#b85c4a",
-  "#4a6f9a",
-  "#6e7580",
-  "#3d7a72",
-  "#8b6a4a",
-  "#7b5ea7",
-  "#c45c48",
-];
+import { attachNpcAnimator } from "./npcSheet";
 
 function addBrick(
   world: World,
   x: number,
   y: number,
   preset: keyof typeof PRESETS,
-  scale = 0.8,
+  scale = 0.9,
 ): Entity {
   const e = world.add(new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale }));
   e.brickModel = BrickModel.fromJSON(PRESETS[preset]!());
@@ -41,8 +32,9 @@ function addNpc(
   lines: string[],
 ): Entity {
   const npc = world.add(
-    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "actor", color }),
+    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "sheet", scale: 0.95 }),
   );
+  npc.animator = attachNpcAnimator(color, 0.95);
   npc.interactable = {
     prompt: "Talk",
     name,
@@ -69,10 +61,11 @@ export function createIslandScene(): SceneDefinition {
     build: (ctx) => {
       const world = new World(new TileMap(createIslandMap()));
 
-      // Plaza greeter
+      // Plaza greeter — dense pixel NPC sheet
       const mira = world.add(
-        new Entity({ x: 21.5, y: 21.5 }, { kind: "actor", color: "#7ec8e3" }),
+        new Entity({ x: 21.5, y: 21.5 }, { kind: "sheet", scale: 0.95 }),
       );
+      mira.animator = attachNpcAnimator("#7ec8e3", 0.95);
       mira.interactable = {
         prompt: "Talk",
         name: "Mira",
@@ -80,13 +73,8 @@ export function createIslandScene(): SceneDefinition {
         onInteract: ({ dialogue }) => dialogue.start(miraDialogue),
       };
 
-      // Market crate
-      const crate = world.add(
-        new Entity(
-          { x: 10.5, y: 35.5 },
-          { kind: "block", color: "#c45c48", width: 18, height: 26 },
-        ),
-      );
+      // Market crate (dense voxel prop)
+      const crate = addBrick(world, 10, 35, "crate", 0.95);
       crate.interactable = {
         prompt: "Inspect",
         name: "Market crate",
@@ -132,64 +120,45 @@ export function createIslandScene(): SceneDefinition {
         addBrick(world, tx, ty, "tree", 0.75 + ((tx + ty) % 3) * 0.05);
       }
 
-      // Street trees along avenues
+      // Street trees along avenues (thinned slightly for denser mesh cost)
       for (const [tx, ty] of [
         [5, 15],
-        [5, 23],
         [5, 31],
         [13, 7],
-        [21, 7],
         [29, 7],
-        [13, 37],
         [21, 33],
-        [29, 33],
         [37, 15],
         [37, 25],
       ] as const) {
-        addBrick(world, tx, ty, "tree", 0.7);
+        addBrick(world, tx, ty, "tree", 0.75);
       }
 
       // Plaza / district props
       addBrick(world, 19, 19, "rock", 0.85);
       addBrick(world, 24, 24, "rock", 0.8);
 
-      // Extra blocky storefronts / stalls near market
-      const stalls: Array<[number, number, number, number, number]> = [
-        [9, 34, 16, 20, 22],
-        [12, 34, 18, 22, 24],
-        [15, 35, 14, 18, 26],
-        [11, 36, 20, 24, 28],
-      ];
-      for (const [x, y, w, h, colorIdx] of stalls) {
-        world.add(
-          new Entity(
-            { x: x + 0.5, y: y + 0.5 },
-            {
-              kind: "block",
-              color: BUILDING_COLORS[colorIdx % BUILDING_COLORS.length],
-              width: w,
-              height: h,
-            },
-          ),
-        );
+      // Market stalls + storefronts (dense voxel meshes)
+      for (const [x, y, scale] of [
+        [9, 34, 0.9],
+        [12, 34, 0.95],
+        [15, 35, 0.88],
+        [11, 36, 0.92],
+      ] as const) {
+        addBrick(world, x, y, "stall", scale);
       }
 
-      // Scattered city props
-      for (const [x, y, color] of [
-        [16, 16, "#7b5ea7"],
-        [26, 16, "#4a6f9a"],
-        [16, 26, "#3d7a72"],
-        [27, 27, "#8b6a4a"],
-        [8, 22, "#6e7580"],
-        [30, 14, "#b85c4a"],
-        [14, 30, "#c45c48"],
-      ] as const) {
-        world.add(
-          new Entity(
-            { x: x + 0.5, y: y + 0.5 },
-            { kind: "block", color, width: 18, height: 28 + (x % 5) },
-          ),
-        );
+      // Scattered dense city props (houses / columns / crates)
+      const cityProps: Array<[number, number, keyof typeof PRESETS, number]> = [
+        [16, 16, "house", 0.72],
+        [26, 16, "house", 0.68],
+        [16, 26, "column", 0.95],
+        [27, 27, "house", 0.7],
+        [8, 22, "column", 0.9],
+        [30, 14, "crate", 0.85],
+        [14, 30, "stall", 0.82],
+      ];
+      for (const [x, y, preset, scale] of cityProps) {
+        addBrick(world, x, y, preset, scale);
       }
 
       addNpc(world, 12, 20, "#e8b86d", "Courier", [
@@ -216,20 +185,11 @@ export function createIslandScene(): SceneDefinition {
       ]);
 
       // Cave mouth on NE terrace
-      world.add(
-        new Entity(
-          { x: 44.5, y: 9.5 },
-          { kind: "block", color: "#2a3340", width: 22, height: 30 },
-        ),
-      );
+      addBrick(world, 44, 9, "column", 1.1);
+      addBrick(world, 45, 9, "rock", 0.9);
 
       // Endless exploration gate on west edge of the plaza
-      const explore = world.add(
-        new Entity(
-          { x: 17.5, y: 21.5 },
-          { kind: "block", color: "#3d7a72", width: 20, height: 30 },
-        ),
-      );
+      const explore = addBrick(world, 17, 21, "house", 0.78);
       explore.interactable = {
         prompt: "Explore",
         name: "Wilderness gate",
@@ -273,8 +233,9 @@ export function createCaveScene(): SceneDefinition {
       const world = new World(new TileMap(createCaveMap()));
 
       const hermit = world.add(
-        new Entity({ x: 4.5, y: 4.5 }, { kind: "actor", color: "#c4a882" }),
+        new Entity({ x: 4.5, y: 4.5 }, { kind: "sheet", scale: 0.95 }),
       );
+      hermit.animator = attachNpcAnimator("#c4a882", 0.95);
       hermit.interactable = {
         prompt: "Talk",
         name: "Hermit",
@@ -306,12 +267,8 @@ export function createCaveScene(): SceneDefinition {
         },
       };
 
-      world.add(
-        new Entity(
-          { x: 7.5, y: 3.5 },
-          { kind: "block", color: "#5a6a7a", width: 16, height: 22 },
-        ),
-      );
+      addBrick(world, 7, 3, "crystal", 0.95);
+      addBrick(world, 8, 4, "rock", 0.8);
 
       return {
         world,

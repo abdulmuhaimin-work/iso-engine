@@ -50,7 +50,7 @@ export class CanvasRenderer {
 
   render(world: World, camera: Camera, assets?: Assets, time = 0): void {
     const { ctx } = this;
-    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingEnabled = false;
     const vw = camera.viewportWidth;
     const vh = camera.viewportHeight;
     this.drawSky(vw, vh);
@@ -130,47 +130,65 @@ export class CanvasRenderer {
   private drawSky(width: number, height: number): void {
     const { ctx } = this;
     const sky = ctx.createLinearGradient(0, 0, 0, height);
-    sky.addColorStop(0, shade(this.clearColor, 48));
-    sky.addColorStop(0.42, this.clearColor);
-    sky.addColorStop(1, mix(this.clearColor, "#0a1218", 0.45));
+    sky.addColorStop(0, mix(this.clearColor, "#6a8fb8", 0.35));
+    sky.addColorStop(0.28, shade(this.clearColor, 28));
+    sky.addColorStop(0.55, this.clearColor);
+    sky.addColorStop(1, mix(this.clearColor, "#081018", 0.55));
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, width, height);
 
     const sun = ctx.createRadialGradient(
-      width * 0.22,
-      height * 0.12,
-      8,
-      width * 0.22,
-      height * 0.12,
-      Math.max(width, height) * 0.45,
+      width * 0.18,
+      height * 0.1,
+      4,
+      width * 0.18,
+      height * 0.1,
+      Math.max(width, height) * 0.52,
     );
-    sun.addColorStop(0, "rgba(255, 214, 160, 0.22)");
-    sun.addColorStop(0.35, "rgba(255, 180, 110, 0.08)");
+    sun.addColorStop(0, "rgba(255, 210, 140, 0.34)");
+    sun.addColorStop(0.28, "rgba(255, 150, 90, 0.12)");
+    sun.addColorStop(0.55, "rgba(120, 80, 140, 0.06)");
     sun.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = sun;
+    ctx.fillRect(0, 0, width, height);
+
+    // Soft horizon haze band
+    const haze = ctx.createLinearGradient(0, height * 0.45, 0, height * 0.78);
+    haze.addColorStop(0, "rgba(180, 200, 220, 0)");
+    haze.addColorStop(0.45, "rgba(140, 170, 200, 0.08)");
+    haze.addColorStop(1, "rgba(40, 60, 90, 0)");
+    ctx.fillStyle = haze;
     ctx.fillRect(0, 0, width, height);
   }
 
   private drawAtmosphere(width: number, height: number): void {
     const { ctx } = this;
     const g = ctx.createRadialGradient(
-      width * 0.42,
-      height * 0.32,
-      Math.min(width, height) * 0.18,
+      width * 0.45,
+      height * 0.28,
+      Math.min(width, height) * 0.12,
       width / 2,
       height / 2,
-      Math.max(width, height) * 0.78,
+      Math.max(width, height) * 0.82,
     );
     g.addColorStop(0, "rgba(0,0,0,0)");
-    g.addColorStop(0.65, "rgba(8, 14, 22, 0.12)");
-    g.addColorStop(1, "rgba(6, 10, 16, 0.46)");
+    g.addColorStop(0.5, "rgba(10, 16, 28, 0.1)");
+    g.addColorStop(0.78, "rgba(8, 12, 22, 0.28)");
+    g.addColorStop(1, "rgba(4, 6, 14, 0.62)");
     ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width, height);
+
+    // Cool depth fog lift at bottom
+    const fog = ctx.createLinearGradient(0, height * 0.55, 0, height);
+    fog.addColorStop(0, "rgba(90, 120, 160, 0)");
+    fog.addColorStop(1, "rgba(50, 80, 120, 0.14)");
+    ctx.fillStyle = fog;
     ctx.fillRect(0, 0, width, height);
 
     const grain = this.textures.grain();
     if (grain) {
       ctx.save();
-      ctx.globalAlpha = 0.07;
+      ctx.globalAlpha = 0.09;
       ctx.globalCompositeOperation = "overlay";
       ctx.fillStyle = grain;
       ctx.fillRect(0, 0, width, height);
@@ -271,34 +289,30 @@ export class CanvasRenderer {
 
   private drawFlowerTuft(cx: number, cy: number, scale: number, color: string): void {
     const { ctx } = this;
+    const s = Math.max(2, Math.round(scale * 0.12));
     ctx.save();
-    ctx.fillStyle = "rgba(40, 90, 48, 0.55)";
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + scale * 0.15, scale * 0.42, scale * 0.18, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.imageSmoothingEnabled = false;
+    // Pixel mound of foliage
+    ctx.fillStyle = "rgba(32, 78, 42, 0.7)";
+    for (let y = -1; y <= 1; y++) {
+      for (let x = -3; x <= 3; x++) {
+        if (Math.abs(x) + Math.abs(y) <= 4) {
+          ctx.fillRect(cx + x * s - s, cy + y * s + s, s, s);
+        }
+      }
+    }
     const petals = [
-      { x: 0, y: -0.55, s: 0.28 },
-      { x: 0.38, y: -0.18, s: 0.22 },
-      { x: -0.34, y: -0.12, s: 0.24 },
-      { x: 0.12, y: 0.12, s: 0.2 },
+      { x: 0, y: -3, c: color },
+      { x: 2, y: -1, c: shade(color, 20) },
+      { x: -2, y: -1, c: shade(color, -10) },
+      { x: 1, y: 1, c: shade(color, 10) },
+      { x: -1, y: 0, c: color },
     ];
     for (const p of petals) {
-      ctx.beginPath();
-      ctx.ellipse(cx + p.x * scale, cy + p.y * scale, scale * p.s, scale * p.s * 0.7, 0, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.fillStyle = shade(color, 36);
-      ctx.beginPath();
-      ctx.ellipse(
-        cx + p.x * scale - scale * 0.06,
-        cy + p.y * scale - scale * 0.05,
-        scale * p.s * 0.35,
-        scale * p.s * 0.25,
-        0,
-        0,
-        Math.PI * 2,
-      );
-      ctx.fill();
+      ctx.fillStyle = p.c;
+      ctx.fillRect(cx + p.x * s - s, cy + p.y * s - s, s * 2, s * 2);
+      ctx.fillStyle = shade(p.c, 40);
+      ctx.fillRect(cx + p.x * s - s / 2, cy + p.y * s - s / 2, s, s);
     }
     ctx.restore();
   }
@@ -474,9 +488,9 @@ export class CanvasRenderer {
   private shadeTopFace(cx: number, cy: number, hw: number, hh: number, amount: number): void {
     const { ctx } = this;
     const light = ctx.createLinearGradient(cx - hw, cy - hh, cx + hw * 0.7, cy + hh);
-    light.addColorStop(0, `rgba(255, 246, 220, ${0.42 * amount + 0.12})`);
-    light.addColorStop(0.45, "rgba(255,255,255,0.04)");
-    light.addColorStop(1, `rgba(16, 26, 44, ${0.55 * amount + 0.12})`);
+    light.addColorStop(0, `rgba(255, 236, 190, ${0.5 * amount + 0.14})`);
+    light.addColorStop(0.4, "rgba(255,255,255,0.05)");
+    light.addColorStop(1, `rgba(12, 22, 40, ${0.62 * amount + 0.14})`);
     ctx.beginPath();
     diamond(ctx, cx, cy, hw, hh);
     ctx.fillStyle = light;
@@ -675,46 +689,43 @@ export class CanvasRenderer {
     const color = sprite.color ?? "#f2f2f2";
 
     if (kind === "actor") {
-      const r = 10 * camera.zoom;
-      ctx.beginPath();
-      ctx.ellipse(screen.x + ox, screen.y + oy, r * 0.7, r * 0.35, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
-      ctx.fill();
+      // Dense pixel silhouette (≈24×40 design cells scaled by zoom).
+      const s = Math.max(1, Math.round(camera.zoom));
+      const x = Math.round(screen.x + ox);
+      const y = Math.round(screen.y + oy);
+      ctx.imageSmoothingEnabled = false;
+      const px = (dx: number, dy: number, w: number, h: number, c: string) => {
+        ctx.fillStyle = c;
+        ctx.fillRect(x + dx * s, y + dy * s, w * s, h * s);
+      };
 
-      const body = ctx.createLinearGradient(
-        screen.x + ox,
-        screen.y - r * 2.2 + oy,
-        screen.x + ox,
-        screen.y + oy,
-      );
-      body.addColorStop(0, shade(color, 28));
-      body.addColorStop(0.55, color);
-      body.addColorStop(1, shade(color, -32));
-      ctx.beginPath();
-      ctx.roundRect(
-        screen.x - r * 0.55 + ox,
-        screen.y - r * 2.2 + oy,
-        r * 1.1,
-        r * 1.8,
-        r * 0.4,
-      );
-      ctx.fillStyle = body;
-      ctx.fill();
-
-      const head = ctx.createRadialGradient(
-        screen.x - r * 0.12 + ox,
-        screen.y - r * 2.55 + oy,
-        r * 0.08,
-        screen.x + ox,
-        screen.y - r * 2.4 + oy,
-        r * 0.5,
-      );
-      head.addColorStop(0, shade(color, 50));
-      head.addColorStop(1, shade(color, 8));
-      ctx.beginPath();
-      ctx.arc(screen.x + ox, screen.y - r * 2.4 + oy, r * 0.45, 0, Math.PI * 2);
-      ctx.fillStyle = head;
-      ctx.fill();
+      px(-7, -1, 14, 3, "rgba(0,0,0,0.4)");
+      // Legs
+      px(-5, -10, 4, 9, shade(color, -40));
+      px(1, -10, 4, 9, shade(color, -40));
+      px(-5, -3, 4, 3, shade(color, -55));
+      px(1, -3, 4, 3, shade(color, -55));
+      // Body
+      px(-6, -22, 12, 13, shade(color, -18));
+      px(-5, -21, 10, 5, color);
+      px(-5, -16, 10, 3, shade(color, 28));
+      px(-4, -12, 8, 2, shade(color, -8));
+      // Arms
+      px(-8, -20, 3, 8, color);
+      px(5, -20, 3, 8, color);
+      px(-8, -13, 3, 3, "#f0c9a0");
+      px(5, -13, 3, 3, "#f0c9a0");
+      // Head + hair + face
+      px(-5, -32, 10, 10, "#f0c9a0");
+      px(-4, -24, 8, 2, "#d4a078");
+      px(-5, -34, 10, 5, "#221820");
+      px(-6, -31, 2, 5, "#221820");
+      px(4, -31, 2, 5, "#221820");
+      px(-3, -29, 2, 2, "#f5efe6");
+      px(1, -29, 2, 2, "#f5efe6");
+      px(-2, -29, 1, 2, "#141018");
+      px(2, -29, 1, 2, "#141018");
+      px(-1, -26, 2, 1, "#b88060");
       return;
     }
 
@@ -800,12 +811,15 @@ export class CanvasRenderer {
   ): void {
     const { ctx } = this;
     ctx.save();
-    ctx.translate(footX, footY);
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(Math.round(footX), Math.round(footY));
     if (flipX) ctx.scale(-1, 1);
+    const dw = Math.round(w);
+    const dh = Math.round(h);
     if (sx !== undefined && sy !== undefined && sw !== undefined && sh !== undefined) {
-      ctx.drawImage(image, sx, sy, sw, sh, -w / 2, -h, w, h);
+      ctx.drawImage(image, sx, sy, sw, sh, -Math.round(dw / 2), -dh, dw, dh);
     } else {
-      ctx.drawImage(image, -w / 2, -h, w, h);
+      ctx.drawImage(image, -Math.round(dw / 2), -dh, dw, dh);
     }
     ctx.restore();
   }

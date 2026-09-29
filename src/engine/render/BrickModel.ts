@@ -27,10 +27,11 @@ export interface BrickMetrics {
   brickHeight: number;
 }
 
+/** Ultra-fine voxel cell (¼ classic Lego) for dense prop/character meshes. */
 export const DEFAULT_BRICK_METRICS: BrickMetrics = {
-  tileWidth: 16,
-  tileHeight: 8,
-  brickHeight: 16,
+  tileWidth: 4,
+  tileHeight: 2,
+  brickHeight: 4,
 };
 
 export function brickKey(x: number, y: number, z: number): string {

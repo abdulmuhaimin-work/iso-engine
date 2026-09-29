@@ -1,9 +1,11 @@
-import { clampByte, fbm, hash2, parseHex, rgb } from "./color";
+import { fbm, hash2, parseHex, quantizeRgb, rgb } from "./color";
 import type { TileMaterial } from "../world/TileMap";
 
 export type { TileMaterial };
 
-const SIZE = 96;
+const SIZE = 128;
+/** Per-texel material sampling for density-2 tile detail. */
+const PIXEL = 1;
 
 /**
  * Cached procedural tile textures + a film-grain overlay.
@@ -112,11 +114,14 @@ function paintMaterial(
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const t = sample(material, x, y, seed);
+      const px = (x / PIXEL) | 0;
+      const py = (y / PIXEL) | 0;
+      const t = sample(material, px, py, seed);
+      const [qr, qg, qb] = quantizeRgb(cr * t.r + t.add, cg * t.g + t.add, cb * t.b + t.add, 20);
       const i = (y * w + x) * 4;
-      d[i] = clampByte(cr * t.r + t.add);
-      d[i + 1] = clampByte(cg * t.g + t.add);
-      d[i + 2] = clampByte(cb * t.b + t.add);
+      d[i] = qr;
+      d[i + 1] = qg;
+      d[i + 2] = qb;
       d[i + 3] = 255;
     }
   }
@@ -215,69 +220,56 @@ function overlayStrokes(
   const [cr, cg, cb] = parseHex(color);
 
   if (material === "grass" || material === "hedge") {
-    const count = material === "hedge" ? 420 : 280;
+    const count = material === "hedge" ? 180 : 120;
     for (let i = 0; i < count; i++) {
-      const x = hash2(i, 1, seed) * w;
-      const y = hash2(i, 2, seed) * h;
-      const len = 3 + hash2(i, 3, seed) * (material === "hedge" ? 7 : 5);
-      ctx.strokeStyle = rgb(
-        cr * (0.7 + hash2(i, 4, seed) * 0.5),
-        cg * (0.85 + hash2(i, 5, seed) * 0.4),
-        cb * (0.55 + hash2(i, 6, seed) * 0.3),
-        0.55,
+      const x = ((hash2(i, 1, seed) * w) / PIXEL) | 0;
+      const y = ((hash2(i, 2, seed) * h) / PIXEL) | 0;
+      const len = 1 + ((hash2(i, 3, seed) * (material === "hedge" ? 3 : 2)) | 0);
+      ctx.fillStyle = rgb(
+        cr * (0.55 + hash2(i, 4, seed) * 0.55),
+        cg * (0.75 + hash2(i, 5, seed) * 0.45),
+        cb * (0.4 + hash2(i, 6, seed) * 0.35),
+        0.85,
       );
-      ctx.lineWidth = material === "hedge" ? 1.2 : 0.9;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + (hash2(i, 7, seed) - 0.5) * 3, y - len);
-      ctx.stroke();
+      ctx.fillRect(x * PIXEL, (y - len) * PIXEL, PIXEL, len * PIXEL);
     }
   }
 
   if (material === "wood") {
-    ctx.strokeStyle = rgb(cr * 0.45, cg * 0.4, cb * 0.3, 0.28);
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 10; i++) {
-      const x = 6 + i * 9 + hash2(i, 8, seed) * 4;
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      for (let y = 0; y <= h; y += 6) {
-        ctx.lineTo(x + Math.sin(y * 0.12 + i) * 2.4, y);
+    ctx.fillStyle = rgb(cr * 0.4, cg * 0.35, cb * 0.25, 0.35);
+    for (let i = 0; i < 8; i++) {
+      const x = (2 + i * 2) * PIXEL + ((hash2(i, 8, seed) * PIXEL) | 0);
+      for (let y = 0; y < h; y += PIXEL) {
+        const wobble = ((Math.sin(y * 0.08 + i) * 0.5) | 0) * PIXEL;
+        ctx.fillRect(x + wobble, y, PIXEL, PIXEL);
       }
-      ctx.stroke();
     }
   }
 
   if (material === "stone" || material === "cave") {
-    ctx.strokeStyle = rgb(20, 22, 28, 0.28);
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 8; i++) {
-      ctx.beginPath();
-      let x = hash2(i, 9, seed) * w;
-      let y = hash2(i, 10, seed) * h;
-      ctx.moveTo(x, y);
-      for (let k = 0; k < 5; k++) {
-        x += (hash2(i, 11 + k, seed) - 0.5) * 18;
-        y += (hash2(i, 21 + k, seed) - 0.35) * 14;
-        ctx.lineTo(x, y);
+    ctx.fillStyle = rgb(16, 18, 24, 0.4);
+    for (let i = 0; i < 10; i++) {
+      let x = ((hash2(i, 9, seed) * w) / PIXEL) | 0;
+      let y = ((hash2(i, 10, seed) * h) / PIXEL) | 0;
+      for (let k = 0; k < 4; k++) {
+        ctx.fillRect(x * PIXEL, y * PIXEL, PIXEL, PIXEL);
+        x += ((hash2(i, 11 + k, seed) - 0.5) * 4) | 0;
+        y += ((hash2(i, 21 + k, seed) - 0.35) * 3) | 0;
       }
-      ctx.stroke();
     }
   }
 
   if (material === "flower") {
-    for (let i = 0; i < 18; i++) {
-      const x = hash2(i, 30, seed) * w;
-      const y = hash2(i, 31, seed) * h;
+    for (let i = 0; i < 14; i++) {
+      const x = ((hash2(i, 30, seed) * w) / PIXEL) | 0;
+      const y = ((hash2(i, 31, seed) * h) / PIXEL) | 0;
       ctx.fillStyle = rgb(
         Math.min(255, cr + 40),
         cg * 0.7,
         Math.min(255, cb + 30),
-        0.85,
+        0.9,
       );
-      ctx.beginPath();
-      ctx.arc(x, y, 2.2 + hash2(i, 32, seed) * 2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillRect(x * PIXEL, y * PIXEL, PIXEL * 2, PIXEL * 2);
     }
   }
 }

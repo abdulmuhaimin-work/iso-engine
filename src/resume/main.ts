@@ -11,11 +11,11 @@ bootPlayable({
   startScene: "lobby",
   startSpawn: "default",
   zoom: 1.2,
-  clearColor: "#1a1820",
+  clearColor: "#141820",
   atmosphere: (id) => {
-    if (id === "career") return "#1a1618";
-    if (id === "studio") return "#14181c";
-    return "#1a1820";
+    if (id === "career") return "#161218";
+    if (id === "studio") return "#10161c";
+    return "#141820";
   },
   hudExtra: (flags) => {
     const bits = [

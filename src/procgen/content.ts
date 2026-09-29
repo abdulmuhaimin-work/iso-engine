@@ -7,6 +7,7 @@ import {
   type Vec2,
 } from "../engine";
 import { PRESETS } from "../builder/presets";
+import { attachNpcAnimator } from "../demo/npcSheet";
 import { Rng } from "./rng";
 import type { LayoutResult } from "./layout";
 import type { SceneTheme } from "./themes";
@@ -99,30 +100,12 @@ function placeProp(world: World, cell: Vec2, theme: SceneTheme, rng: Rng): void 
   if (style === "trees") preset = "tree";
   else if (style === "rocks") preset = "rock";
   else if (style === "mixed") preset = rng.chance(0.55) ? "tree" : "rock";
-  else if (style === "ruins" || style === "stalls" || style === "crystals") {
-    // Use colored blocks for stalls/ruins/crystals.
-    const colors =
-      style === "crystals"
-        ? [theme.palette.flower, theme.palette.structure, "#c4a0e8"]
-        : style === "stalls"
-          ? [theme.palette.structure, theme.palette.flower, theme.palette.accent]
-          : [theme.palette.wall, theme.palette.structure, theme.palette.path];
-    world.add(
-      new Entity(
-        { x: cell.x + 0.5, y: cell.y + 0.5 },
-        {
-          kind: "block",
-          color: rng.pick(colors),
-          width: rng.int(14, 20),
-          height: rng.int(22, 32),
-        },
-      ),
-    );
-    return;
-  }
+  else if (style === "stalls") preset = rng.chance(0.55) ? "stall" : "crate";
+  else if (style === "crystals") preset = rng.chance(0.65) ? "crystal" : "rock";
+  else if (style === "ruins") preset = rng.chance(0.5) ? "column" : "house";
 
   const e = world.add(
-    new Entity({ x: cell.x + 0.5, y: cell.y + 0.5 }, { kind: "brick", scale: rng.float(0.65, 0.9) }),
+    new Entity({ x: cell.x + 0.5, y: cell.y + 0.5 }, { kind: "brick", scale: rng.float(0.7, 0.95) }),
   );
   e.brickModel = BrickModel.fromJSON(PRESETS[preset]!());
 }
@@ -137,8 +120,9 @@ function addNpc(
   sceneId: string,
 ): void {
   const npc = world.add(
-    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "actor", color }),
+    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "sheet", scale: 0.95 }),
   );
+  npc.animator = attachNpcAnimator(color, 0.95);
   npc.interactable = {
     prompt: "Talk",
     name,
@@ -177,10 +161,10 @@ function addRelic(
   rng: Rng,
 ): void {
   const e = world.add(
-    new Entity(
-      { x: x + 0.5, y: y + 0.5 },
-      { kind: "block", color: theme.palette.flower, width: 16, height: 22 },
-    ),
+    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale: 0.85 }),
+  );
+  e.brickModel = BrickModel.fromJSON(
+    PRESETS[theme.props === "crystals" ? "crystal" : "crate"]!(),
   );
   const flag = `relic_${sceneId}_${x}_${y}`;
   const reward = rng.pick(["a pressed leaf", "a brass token", "a scrap of chart", "a smooth pebble"]);
@@ -225,11 +209,9 @@ function addRelic(
 
 function addLandmark(world: World, x: number, y: number, theme: SceneTheme, sceneId: string): void {
   const e = world.add(
-    new Entity(
-      { x: x + 0.5, y: y + 0.5 },
-      { kind: "block", color: theme.palette.structure, width: 22, height: 34 },
-    ),
+    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale: 0.95 }),
   );
+  e.brickModel = BrickModel.fromJSON(PRESETS.column!());
   e.interactable = {
     prompt: "Read",
     name: "Waystone",
@@ -271,11 +253,9 @@ function addWebpageTerminal(
   const rng = new Rng(Rng.mix(seed, 0x51_6e_a1));
   const label = rng.pick(labels);
   const e = world.add(
-    new Entity(
-      { x: x + 0.5, y: y + 0.5 },
-      { kind: "block", color: "#2a3344", width: 20, height: 30 },
-    ),
+    new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale: 0.9 }),
   );
+  e.brickModel = BrickModel.fromJSON(PRESETS.house!());
   e.interactable = {
     prompt: "Browse",
     name: label,

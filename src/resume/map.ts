@@ -13,15 +13,15 @@ export const RT = {
 } as const;
 
 export const RESUME_DEFS: Record<number, TileDef> = {
-  [RT.floor]: { id: RT.floor, name: "stone", color: "#8d97a3", walkable: true },
-  [RT.path]: { id: RT.path, name: "path", color: "#cbb892", walkable: true },
-  [RT.hedge]: { id: RT.hedge, name: "hedge", color: "#3d6b45", walkable: false, elevation: 8 },
-  [RT.water]: { id: RT.water, name: "pool", color: "#4a88a8", walkable: false },
-  [RT.wood]: { id: RT.wood, name: "wood", color: "#8b6a45", walkable: true },
-  [RT.carpet]: { id: RT.carpet, name: "carpet", color: "#6a4a58", walkable: true },
-  [RT.desk]: { id: RT.desk, name: "desk", color: "#5a4636", walkable: false, elevation: 6 },
-  [RT.flower]: { id: RT.flower, name: "flower", color: "#d4a0c8", walkable: true },
-  [RT.roof]: { id: RT.roof, name: "building", color: "#6e7580", walkable: false },
+  [RT.floor]: { id: RT.floor, name: "stone", color: "#7e8a9a", walkable: true },
+  [RT.path]: { id: RT.path, name: "path", color: "#d4b878", walkable: true },
+  [RT.hedge]: { id: RT.hedge, name: "hedge", color: "#2e7a42", walkable: false, elevation: 8 },
+  [RT.water]: { id: RT.water, name: "pool", color: "#2e8ec4", walkable: false },
+  [RT.wood]: { id: RT.wood, name: "wood", color: "#9a6e3e", walkable: true },
+  [RT.carpet]: { id: RT.carpet, name: "carpet", color: "#7a3e58", walkable: true },
+  [RT.desk]: { id: RT.desk, name: "desk", color: "#5a3e28", walkable: false, elevation: 6 },
+  [RT.flower]: { id: RT.flower, name: "flower", color: "#e878b8", walkable: true },
+  [RT.roof]: { id: RT.roof, name: "building", color: "#667088", walkable: false },
 };
 
 function grid(width: number, height: number, fillId: number) {
