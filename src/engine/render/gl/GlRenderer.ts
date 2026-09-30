@@ -8,6 +8,7 @@ import { brickToScreen } from "../BrickModel";
 import { parseHex, shade } from "../color";
 import { materialIdFromDef } from "../textures";
 import type { RendererOptions } from "../CanvasRenderer";
+import type { ParticleSystem } from "../../fx/Particles";
 import { compileProgram } from "./program";
 import {
   ATMOS_FRAG,
@@ -33,6 +34,7 @@ export class GlRenderer {
   showGrid: boolean;
   hoverTile: Vec2 | null = null;
   pathTiles: Vec2[] | null = null;
+  particles: ParticleSystem | null = null;
 
   private readonly gl: WebGL2RenderingContext;
   private readonly canvas: HTMLCanvasElement;
@@ -102,7 +104,8 @@ export class GlRenderer {
 
     this.drawTerrain(camera, time);
     this.drawEntitiesAndFx(world, camera, assets);
-    this.drawAtmos();
+    this.drawParticles(camera, world);
+    this.drawAtmos(time);
   }
 
   private makeIsoVao(): WebGLVertexArrayObject {
@@ -160,13 +163,45 @@ export class GlRenderer {
     gl.enable(gl.DEPTH_TEST);
   }
 
-  private drawAtmos(): void {
+  private drawAtmos(time: number): void {
     const gl = this.gl;
     gl.disable(gl.DEPTH_TEST);
     gl.useProgram(this.atmosProg);
     gl.bindVertexArray(this.emptyVao);
     gl.uniform2f(gl.getUniformLocation(this.atmosProg, "uViewport"), this.canvas.width, this.canvas.height);
+    gl.uniform1f(gl.getUniformLocation(this.atmosProg, "uTime"), time);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.enable(gl.DEPTH_TEST);
+  }
+
+  private drawParticles(camera: Camera, world: World): void {
+    if (!this.particles) return;
+    const list = this.particles.toScreen(camera, world);
+    if (list.length === 0) return;
+    this.colorMesh.reset();
+    for (const p of list) {
+      const rgba = [p.r / 255, p.g / 255, p.b / 255, Math.min(1, Math.max(0, p.a))];
+      const s = Math.max(0.8, p.size);
+      if (p.kind === "spark" || p.kind === "ember") {
+        this.pushSdf(p.x, p.y, s * 0.35, s * 1.1, rgba, 1, 0.02);
+      } else if (p.kind === "spray") {
+        this.pushSdf(p.x, p.y, s * 0.7, s * 0.55, rgba, 1, 0.03);
+      } else {
+        this.pushSdf(p.x, p.y, s * 0.55, s * 0.55, rgba, 1, 0.025);
+      }
+    }
+    const gl = this.gl;
+    gl.disable(gl.DEPTH_TEST);
+    gl.useProgram(this.colorProg);
+    gl.bindVertexArray(this.colorVao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.colorVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, this.colorMesh.view(), gl.STREAM_DRAW);
+    gl.uniform2f(
+      gl.getUniformLocation(this.colorProg, "uViewport"),
+      camera.viewportWidth,
+      camera.viewportHeight,
+    );
+    gl.drawArrays(gl.TRIANGLES, 0, this.colorMesh.count / COLOR_STRIDE);
     gl.enable(gl.DEPTH_TEST);
   }
 

@@ -14,8 +14,14 @@ import {
   screenStickToWorldStep,
   nearWater,
   pickTile,
+  AudioBus,
+  ParticleSystem,
+  WorldDynamics,
+  surfaceAt,
   CutsceneDirector,
   type SceneDefinition,
+  type AmbientTheme,
+  type AtmospherePreset,
   type CutsceneScript,
 } from "../engine";
 import { createDemoHeroSheet } from "../demo/heroSheet";
@@ -28,6 +34,8 @@ export interface PlayableOptions {
   zoom?: number;
   clearColor?: string;
   atmosphere?: (sceneId: string | null) => string;
+  ambientTheme?: (sceneId: string | null) => AmbientTheme;
+  particlePreset?: (sceneId: string | null) => AtmospherePreset;
   hudExtra?: (flags: Flags, sceneId: string | null) => string;
   /** Story beats keyed by id (play via CutsceneDirector). */
   cutscenes?: Record<string, CutsceneScript>;
@@ -48,6 +56,7 @@ export function bootPlayable(options: PlayableOptions): void {
   const webpageRoot = document.querySelector<HTMLElement>("#webpage-root");
   const minigameRoot = document.querySelector<HTMLElement>("#minigame-root");
   const touchRoot = document.querySelector<HTMLElement>("#touch-controls");
+  const audioRoot = document.querySelector<HTMLElement>("#audio-controls-root");
   if (!canvas || !hud || !promptEl || !dialogueRoot || !fadeEl) {
     throw new Error("Missing required DOM nodes");
   }
@@ -59,12 +68,17 @@ export function bootPlayable(options: PlayableOptions): void {
     ? new WebPageViewer({ root: webpageRoot })
     : undefined;
 
+  const audio = new AudioBus({ controlsRoot: audioRoot });
+  const particles = new ParticleSystem();
+  const dynamics = new WorldDynamics();
+
   const clearColor = options.clearColor ?? "#152028";
   const game = new Game({
     canvas,
     camera: { zoom: options.zoom ?? 1.1 },
     renderer: { clearColor, showGrid: true },
   });
+  game.renderer.particles = particles;
 
   const flags = new Flags();
   const dialogue = new DialogueRunner(flags);
@@ -121,13 +135,38 @@ export function bootPlayable(options: PlayableOptions): void {
   const mover = new PathFollower({ mode: "cardinal", speed: 3.2, maxClimb: 1 });
   game.camera.lookAt(player.position);
 
+  let baseAtmosphere = clearColor;
+  let wasDialogue = false;
+  let wasWebpage = false;
+  let wasMinigame = false;
+
   function applySceneAtmosphere(): void {
     interactions.world = scenes.world;
-    game.renderer.clearColor =
-      options.atmosphere?.(scenes.sceneId) ?? clearColor;
+    baseAtmosphere = options.atmosphere?.(scenes.sceneId) ?? clearColor;
+    game.renderer.clearColor = dynamics.dayTint(baseAtmosphere);
     game.camera.lookAt(player.position);
     mover.clear();
     game.renderer.pathTiles = null;
+    particles.clear();
+    dynamics.bind(scenes.world);
+
+    const theme =
+      options.ambientTheme?.(scenes.sceneId) ??
+      (scenes.sceneId === "cave"
+        ? "cave"
+        : scenes.sceneId === "lobby" || scenes.sceneId === "career" || scenes.sceneId === "studio"
+          ? "lobby"
+          : "harbor");
+    audio.setAmbient(theme);
+
+    const preset =
+      options.particlePreset?.(scenes.sceneId) ??
+      (scenes.sceneId === "cave"
+        ? "cave"
+        : scenes.sceneId === "lobby" || scenes.sceneId === "career" || scenes.sceneId === "studio"
+          ? "lobby"
+          : "harbor");
+    particles.setPreset(preset);
   }
 
   applySceneAtmosphere();
@@ -149,13 +188,31 @@ export function bootPlayable(options: PlayableOptions): void {
     }
   }
 
+  function interactCue(): void {
+    const focus = interactions.focus;
+    const prompt = focus?.interactable.prompt.toLowerCase() ?? "";
+    if (prompt.includes("talk") || prompt.includes("view")) audio.playInteract("talk");
+    else if (prompt.includes("fish")) audio.playInteract("fish");
+    else if (
+      prompt.includes("browse") ||
+      prompt.includes("read") ||
+      prompt.includes("open") ||
+      prompt.includes("explore")
+    ) {
+      audio.playInteract("browse");
+    } else audio.playInteract("generic");
+  }
+
   game.onUpdate = ({ dt, camera, input }) => {
     scenes.update(dt);
+    audio.update(dt);
     cutscenes?.update(dt, camera);
     if (scenes.sceneId !== lastSceneId) {
       lastSceneId = scenes.sceneId;
       applySceneAtmosphere();
     }
+
+    game.renderer.clearColor = dynamics.dayTint(baseAtmosphere);
 
     if (scenes.transitioning) {
       touch?.setSuppressed(true);
@@ -171,8 +228,12 @@ export function bootPlayable(options: PlayableOptions): void {
 
     if (minigames?.active) {
       touch?.setSuppressed(true);
-      if (input.justPressed("Escape")) minigames.stop();
-      else minigames.update(dt);
+      if (!wasMinigame) audio.playInteract("fish");
+      wasMinigame = true;
+      if (input.justPressed("Escape")) {
+        minigames.stop();
+        audio.playUi("cancel");
+      } else minigames.update(dt);
       mover.clear();
       syncHeroAnim(false, 0, 0);
       player.animator?.update(dt);
@@ -182,14 +243,17 @@ export function bootPlayable(options: PlayableOptions): void {
       interactions.focus = null;
       return;
     }
+    wasMinigame = false;
 
     if (cutscenes?.active) {
       touch?.setSuppressed(true);
       if (input.justPressed("Space") || input.justPressed("Enter")) {
         cutscenes.continue();
+        audio.playUi("beep");
       }
       if (input.justPressed("Escape")) {
         cutscenes.skip();
+        audio.playUi("cancel");
       }
       mover.clear();
       syncHeroAnim(false, 0, 0);
@@ -203,17 +267,24 @@ export function bootPlayable(options: PlayableOptions): void {
 
     if (dialogue.active || webpage?.active) {
       touch?.setSuppressed(true);
+      if (dialogue.active && !wasDialogue) audio.playInteract("talk");
+      if (webpage?.active && !wasWebpage) audio.playInteract("browse");
+      wasDialogue = dialogue.active;
+      wasWebpage = Boolean(webpage?.active);
+
       if (input.justPressed("Space") || input.justPressed("Enter")) {
         if (dialogue.active) {
           const node = dialogue.currentNode;
           if (node && dialogue.visibleChoices(node).length === 0) {
             dialogue.continue();
+            audio.playUi("beep");
           }
         }
       }
       if (input.justPressed("Escape")) {
         if (webpage?.active) webpage.close();
         else dialogue.end();
+        audio.playUi("cancel");
       }
       mover.clear();
       syncHeroAnim(false, 0, 0);
@@ -224,10 +295,15 @@ export function bootPlayable(options: PlayableOptions): void {
       interactions.focus = null;
       return;
     }
+    wasDialogue = false;
+    wasWebpage = false;
 
     touch?.setSuppressed(false);
 
     const world = scenes.world;
+    dynamics.update(dt, world);
+    particles.update(dt, world, camera);
+
     const axis = input.moveAxis();
     if (axis.x !== 0 || axis.y !== 0) {
       const panSpeed = (4.5 / camera.zoom) * dt;
@@ -291,14 +367,22 @@ export function bootPlayable(options: PlayableOptions): void {
 
     const wantInteract = input.justPressed("KeyE") || Boolean(touch?.consumeInteract());
     if (wantInteract) {
-      if (!interactions.tryInteract(player) && minigames && nearWater(world.map, player.position)) {
+      if (interactions.tryInteract(player)) {
+        interactCue();
+      } else if (minigames && nearWater(world.map, player.position)) {
+        audio.playInteract("fish");
         minigames.play("fishing");
       }
     }
 
     const prev = { x: player.position.x, y: player.position.y };
     mover.update(world, player, dt);
+    const moved =
+      Math.abs(player.position.x - prev.x) + Math.abs(player.position.y - prev.y) > 0.001;
     syncHeroAnim(mover.active, player.position.x - prev.x, player.position.y - prev.y);
+    if (moved) {
+      audio.playFootstep(surfaceAt(world, player.position.x, player.position.y));
+    }
 
     // Keep the camera following on touch so the stick stays useful.
     if (touch?.active && (stickStep || mover.active)) {

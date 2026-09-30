@@ -21,6 +21,8 @@ function addBrickProp(
 ): Entity {
   const e = world.add(new Entity({ x: x + 0.5, y: y + 0.5 }, { kind: "brick", scale }));
   e.brickModel = BrickModel.fromJSON(PRESETS[preset]!());
+  if (preset === "tree") e.data.fx = "foliage";
+  if (preset === "column" || preset === "stall") e.data.fx = "glow";
   return e;
 }
 
@@ -67,10 +69,12 @@ export function createLobbyScene(): SceneDefinition {
         new Entity({ x: 3.5, y: 7.5 }, { kind: "brick", scale: 0.75 }),
       );
       tree.brickModel = BrickModel.fromJSON(PRESETS.tree!());
+      tree.data.fx = "foliage";
       const tree2 = world.add(
         new Entity({ x: 6.5, y: 11.5 }, { kind: "brick", scale: 0.7 }),
       );
       tree2.brickModel = BrickModel.fromJSON(PRESETS.tree!());
+      tree2.data.fx = "foliage";
 
       addPage(world, 4, 11, "#c4a882", "Skills gardener", "skills", "visited_skills");
       addPage(world, 11, 16, "#c9b896", "Mailbox", "contact", "visited_contact", "prop", "crate");

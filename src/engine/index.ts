@@ -1,3 +1,12 @@
+export { AudioBus, type AmbientTheme, type AudioBusOptions } from "./audio/AudioBus";
+export {
+  ParticleSystem,
+  surfaceAt,
+  type AtmospherePreset,
+  type ParticleKind,
+  type ScreenParticle,
+} from "./fx/Particles";
+export { WorldDynamics } from "./fx/WorldDynamics";
 export { Game, type GameOptions, type FrameContext, type GameHook } from "./Game";
 export { Camera, type CameraOptions } from "./Camera";
 export { Input, type KeyCode } from "./Input";
