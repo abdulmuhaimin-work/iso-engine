@@ -18,9 +18,11 @@ import {
   ParticleSystem,
   WorldDynamics,
   surfaceAt,
+  CutsceneDirector,
   type SceneDefinition,
   type AmbientTheme,
   type AtmospherePreset,
+  type CutsceneScript,
 } from "../engine";
 import { createDemoHeroSheet } from "../demo/heroSheet";
 import { createFishingGame } from "../minigames/fishing";
@@ -35,6 +37,10 @@ export interface PlayableOptions {
   ambientTheme?: (sceneId: string | null) => AmbientTheme;
   particlePreset?: (sceneId: string | null) => AtmospherePreset;
   hudExtra?: (flags: Flags, sceneId: string | null) => string;
+  /** Story beats keyed by id (play via CutsceneDirector). */
+  cutscenes?: Record<string, CutsceneScript>;
+  /** Register procedural / atlas art ids for cutscene steps. */
+  registerCutsceneArt?: (director: CutsceneDirector) => void;
 }
 
 /**
@@ -45,6 +51,7 @@ export function bootPlayable(options: PlayableOptions): void {
   const hud = document.querySelector<HTMLDivElement>("#hud");
   const promptEl = document.querySelector<HTMLDivElement>("#prompt");
   const dialogueRoot = document.querySelector<HTMLElement>("#dialogue-root");
+  const cutsceneRoot = document.querySelector<HTMLElement>("#cutscene-root");
   const fadeEl = document.querySelector<HTMLElement>("#fade");
   const webpageRoot = document.querySelector<HTMLElement>("#webpage-root");
   const minigameRoot = document.querySelector<HTMLElement>("#minigame-root");
@@ -77,6 +84,16 @@ export function bootPlayable(options: PlayableOptions): void {
   const dialogue = new DialogueRunner(flags);
   new DialogueUI({ root: dialogueRoot, runner: dialogue });
 
+  const cutscenes = cutsceneRoot
+    ? new CutsceneDirector({
+        root: cutsceneRoot,
+        flags,
+        fadeElement: fadeEl,
+        scripts: options.cutscenes,
+      })
+    : undefined;
+  if (cutscenes) options.registerCutsceneArt?.(cutscenes);
+
   const minigames = minigameRoot
     ? new MiniGameHost({ root: minigameRoot, flags, input: game.input })
     : undefined;
@@ -85,12 +102,13 @@ export function bootPlayable(options: PlayableOptions): void {
   const heroArt = createDemoHeroSheet();
   game.assets.registerSheet("hero", heroArt.sheet);
 
-  const player = new Entity({ x: 8.5, y: 7.5 }, { kind: "sheet", scale: 1.15 });
+  // 72×108 sheet — scale ~0.85 ≈ prior on-screen size with denser pixels.
+  const player = new Entity({ x: 8.5, y: 7.5 }, { kind: "sheet", scale: 0.88 });
   player.animator = new SpriteAnimator({
     sheet: heroArt.sheet,
     animations: heroArt.animations,
     initial: "idle",
-    scale: 1.15,
+    scale: 0.88,
   });
 
   const scenes = new SceneManager({
@@ -100,6 +118,7 @@ export function bootPlayable(options: PlayableOptions): void {
     player,
     webpage,
     minigames,
+    cutscenes,
     fadeElement: fadeEl,
   });
   scenes.registerAll(options.scenes);
@@ -111,6 +130,7 @@ export function bootPlayable(options: PlayableOptions): void {
     dialogue,
     webpage,
     minigames,
+    cutscenes,
   });
   const mover = new PathFollower({ mode: "cardinal", speed: 3.2, maxClimb: 1 });
   game.camera.lookAt(player.position);
@@ -186,6 +206,7 @@ export function bootPlayable(options: PlayableOptions): void {
   game.onUpdate = ({ dt, camera, input }) => {
     scenes.update(dt);
     audio.update(dt);
+    cutscenes?.update(dt, camera);
     if (scenes.sceneId !== lastSceneId) {
       lastSceneId = scenes.sceneId;
       applySceneAtmosphere();
@@ -223,6 +244,26 @@ export function bootPlayable(options: PlayableOptions): void {
       return;
     }
     wasMinigame = false;
+
+    if (cutscenes?.active) {
+      touch?.setSuppressed(true);
+      if (input.justPressed("Space") || input.justPressed("Enter")) {
+        cutscenes.continue();
+        audio.playUi("beep");
+      }
+      if (input.justPressed("Escape")) {
+        cutscenes.skip();
+        audio.playUi("cancel");
+      }
+      mover.clear();
+      syncHeroAnim(false, 0, 0);
+      player.animator?.update(dt);
+      game.renderer.pathTiles = null;
+      game.renderer.hoverTile = null;
+      promptEl.classList.add("hidden");
+      interactions.focus = null;
+      return;
+    }
 
     if (dialogue.active || webpage?.active) {
       touch?.setSuppressed(true);
@@ -381,7 +422,9 @@ export function bootPlayable(options: PlayableOptions): void {
       ? "traveling"
       : minigames?.active
         ? minigames.currentId ?? "minigame"
-        : dialogue.active || webpage?.active
+        : cutscenes?.active
+          ? "cutscene"
+          : dialogue.active || webpage?.active
         ? "reading"
         : remaining > 0
           ? `path ${remaining}`
